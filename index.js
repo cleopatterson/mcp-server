@@ -121,25 +121,25 @@ function handleToolCall(name, args) {
       const minPrice = Math.round(basePrice * 0.8);
       const maxPrice = Math.round(basePrice * 1.2);
 
-      let response = `🎨 Painting Price Estimate\n`;
-      response += `━━━━━━━━━━━━━━━━━━━━\n`;
-      response += `Description: ${args.description}\n`;
+      let priceResponse = `🎨 Painting Price Estimate\n`;
+      priceResponse += `━━━━━━━━━━━━━━━━━━━━\n`;
+      priceResponse += `Description: ${args.description}\n`;
       if (args.postcode) {
-        response += `Location: Postcode ${args.postcode}\n`;
+        priceResponse += `Location: Postcode ${args.postcode}\n`;
       }
-      response += `\n💰 Estimated Price Range: $${minPrice} - $${maxPrice}\n`;
-      response += `⏱️ Estimated Duration: ${days} day${days > 1 ? 's' : ''}\n`;
-      response += `\n📝 Note: This is a rough estimate. Actual prices vary based on:\n`;
-      response += `• Surface preparation needed\n`;
-      response += `• Paint quality selected\n`;
-      response += `• Accessibility and room layout\n`;
-      response += `• Current condition of surfaces`;
+      priceResponse += `\n💰 Estimated Price Range: $${minPrice} - $${maxPrice}\n`;
+      priceResponse += `⏱️ Estimated Duration: ${days} day${days > 1 ? 's' : ''}\n`;
+      priceResponse += `\n📝 Note: This is a rough estimate. Actual prices vary based on:\n`;
+      priceResponse += `• Surface preparation needed\n`;
+      priceResponse += `• Paint quality selected\n`;
+      priceResponse += `• Accessibility and room layout\n`;
+      priceResponse += `• Current condition of surfaces`;
 
       return {
         content: [
           {
             type: "text",
-            text: response,
+            text: priceResponse,
           },
         ],
       };
@@ -163,23 +163,23 @@ function handleToolCall(name, args) {
       const wallPaintNeeded = (paintableArea * coats) / coveragePerLiter;
       const ceilingPaintNeeded = (ceilingArea * coats) / coveragePerLiter;
 
-      let response = `🎨 Paint Calculator Results\n`;
-      response += `━━━━━━━━━━━━━━━━━━━━\n`;
-      response += `Room Dimensions: ${length}m × ${width}m × ${height}m\n\n`;
-      response += `📐 Areas:\n`;
-      response += `• Wall area: ${paintableArea.toFixed(1)}m²\n`;
-      response += `• Ceiling area: ${ceilingArea.toFixed(1)}m²\n\n`;
-      response += `🪣 Paint Required (2 coats):\n`;
-      response += `• Walls: ${Math.ceil(wallPaintNeeded)} liters\n`;
-      response += `• Ceiling: ${Math.ceil(ceilingPaintNeeded)} liters\n`;
-      response += `• Total: ${Math.ceil(wallPaintNeeded + ceilingPaintNeeded)} liters\n\n`;
-      response += `💡 Tip: Add 10% extra for touch-ups and future maintenance`;
+      let calculatorResponse = `🎨 Paint Calculator Results\n`;
+      calculatorResponse += `━━━━━━━━━━━━━━━━━━━━\n`;
+      calculatorResponse += `Room Dimensions: ${length}m × ${width}m × ${height}m\n\n`;
+      calculatorResponse += `📐 Areas:\n`;
+      calculatorResponse += `• Wall area: ${paintableArea.toFixed(1)}m²\n`;
+      calculatorResponse += `• Ceiling area: ${ceilingArea.toFixed(1)}m²\n\n`;
+      calculatorResponse += `🪣 Paint Required (2 coats):\n`;
+      calculatorResponse += `• Walls: ${Math.ceil(wallPaintNeeded)} liters\n`;
+      calculatorResponse += `• Ceiling: ${Math.ceil(ceilingPaintNeeded)} liters\n`;
+      calculatorResponse += `• Total: ${Math.ceil(wallPaintNeeded + ceilingPaintNeeded)} liters\n\n`;
+      calculatorResponse += `💡 Tip: Add 10% extra for touch-ups and future maintenance`;
 
       return {
         content: [
           {
             type: "text",
-            text: response,
+            text: calculatorResponse,
           },
         ],
       };
