@@ -9,7 +9,7 @@ app.use(express.json());
 // Simple MCP Server implementation
 const mcpServer = {
   name: "painterjobs-mcp",
-  version: "0.1.0"
+  version: "1.0.0"
 };
 
 // Define available tools
@@ -192,19 +192,58 @@ function handleToolCall(name, args) {
 }
 
 // MCP Protocol Endpoints
-app.post("/mcp", async (req, res) => {
+app.all("/mcp", async (req, res) => {
   try {
-    const { method, params } = req.body;
+    // Handle GET requests (connection test)
+    if (req.method === 'GET') {
+      console.log("GET request to /mcp - returning server info");
+      return res.json({
+        name: mcpServer.name,
+        version: mcpServer.version,
+        protocolVersion: "2025-06-18",
+        capabilities: {
+          tools: true
+        },
+        status: "ready"
+      });
+    }
+
+    // Handle POST requests
+    const { method, params } = req.body || {};
 
     console.log(`MCP Request: ${method}`, params);
 
     switch (method) {
+      case "initialize":
+        // Handle MCP initialization handshake
+        res.json({
+          protocolVersion: "2025-06-18",
+          capabilities: {
+            tools: {
+              listChanged: false
+            }
+          },
+          serverInfo: {
+            name: mcpServer.name,
+            version: mcpServer.version
+          }
+        });
+        break;
+
       case "tools/list":
+      case "list_tools":
+      case "listTools":
         res.json({ tools });
         break;
 
       case "tools/call":
-        const result = handleToolCall(params.name, params.arguments || {});
+      case "call_tool":
+      case "callTool":
+        const toolParams = params || {};
+        const result = handleToolCall(
+          toolParams.name || toolParams.tool_name, 
+          toolParams.arguments || toolParams.args || {}
+        );
         if (result.error) {
           res.status(400).json({ error: result.error });
         } else {
@@ -212,8 +251,26 @@ app.post("/mcp", async (req, res) => {
         }
         break;
 
+      case "ping":
+        // Some MCP clients send ping to check connection
+        res.json({ pong: true, timestamp: new Date().toISOString() });
+        break;
+
       default:
-        res.status(400).json({ error: `Unsupported method: ${method}` });
+        // If no method specified, assume it's a connection test
+        if (!method) {
+          res.json({
+            name: mcpServer.name,
+            version: mcpServer.version,
+            protocolVersion: "2025-06-18",
+            capabilities: {
+              tools: true
+            },
+            status: "ready"
+          });
+        } else {
+          res.status(400).json({ error: `Unsupported method: ${method}` });
+        }
     }
   } catch (error) {
     console.error("MCP request error:", error);
@@ -221,6 +278,14 @@ app.post("/mcp", async (req, res) => {
       error: error.message || "Internal server error" 
     });
   }
+});
+
+// OPTIONS for CORS preflight
+app.options("/mcp", (req, res) => {
+  res.header("Access-Control-Allow-Origin", "*");
+  res.header("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.sendStatus(200);
 });
 
 // Health check endpoint
@@ -238,41 +303,28 @@ app.get("/", (req, res) => {
   res.json({
     message: "🎨 PainterJobs MCP Server",
     version: mcpServer.version,
+    protocolVersion: "2025-06-18",
     endpoints: {
       "GET /": "This documentation",
       "GET /health": "Health check",
+      "GET /mcp": "MCP server info",
       "POST /mcp": "MCP protocol endpoint",
     },
     tools: tools.map(t => ({
       name: t.name,
       description: t.description
     })),
-    examples: [
-      {
-        description: "List all tools",
-        method: "POST",
-        url: "/mcp",
-        body: {
-          method: "tools/list",
-          params: {}
-        }
-      },
-      {
-        description: "Estimate painting price",
-        method: "POST",
-        url: "/mcp",
-        body: {
-          method: "tools/call",
-          params: {
-            name: "service_seeking_price_estimator",
-            arguments: {
-              description: "paint 3 bedroom house interior",
-              postcode: "2093"
-            }
-          }
-        }
+    mcp_methods: [
+      "initialize - Handshake with MCP client",
+      "tools/list - Get available tools",
+      "tools/call - Execute a tool"
+    ],
+    voiceflow_config: {
+      url: "https://get-tools-cleopatterson.replit.app/mcp",
+      headers: {
+        "Content-Type": "application/json"
       }
-    ]
+    }
   });
 });
 
@@ -281,4 +333,5 @@ app.listen(PORT, () => {
   console.log(`✅ MCP Server running on port ${PORT}`);
   console.log(`📍 Health check: http://localhost:${PORT}/health`);
   console.log(`📍 API docs: http://localhost:${PORT}/`);
+  console.log(`📍 MCP endpoint: http://localhost:${PORT}/mcp`);
 });
