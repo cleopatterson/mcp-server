@@ -6,6 +6,15 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
+// Log all requests for debugging
+app.use((req, res, next) => {
+  console.log(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
+  if (req.body) {
+    console.log('Body:', JSON.stringify(req.body, null, 2));
+  }
+  next();
+});
+
 // Simple MCP Server implementation
 const mcpServer = {
   name: "painterjobs-mcp",
@@ -73,6 +82,8 @@ const tools = [
 
 // Tool implementations
 function handleToolCall(name, args) {
+  console.log(`Calling tool: ${name} with args:`, args);
+
   switch (name) {
     case "test_echo":
       return {
@@ -148,13 +159,13 @@ function handleToolCall(name, args) {
       const { length, width, height } = args;
 
       // Calculate wall area (perimeter × height minus standard door/window area)
-      const perimeter = 2 * (length + width);
-      const wallArea = perimeter * height;
+      const perimeter = 2 * (parseFloat(length) + parseFloat(width));
+      const wallArea = perimeter * parseFloat(height);
       const doorWindowArea = 4; // Approximate m² for standard door and window
       const paintableArea = wallArea - doorWindowArea;
 
       // Calculate ceiling area
-      const ceilingArea = length * width;
+      const ceilingArea = parseFloat(length) * parseFloat(width);
 
       // Paint coverage (1 liter typically covers 10m² for one coat)
       const coveragePerLiter = 10;
@@ -191,100 +202,118 @@ function handleToolCall(name, args) {
   }
 }
 
-// MCP Protocol Endpoints
+// Main MCP endpoint - handle both GET and POST
 app.all("/mcp", async (req, res) => {
   try {
-    // Handle GET requests (connection test)
+    // Handle GET requests
     if (req.method === 'GET') {
-      console.log("GET request to /mcp - returning server info");
-      return res.json({
-        name: mcpServer.name,
-        version: mcpServer.version,
-        protocolVersion: "2025-06-18",
-        capabilities: {
-          tools: true
-        },
-        status: "ready"
+      console.log("GET /mcp - returning tools list");
+      return res.json({ 
+        tools: tools,
+        server: mcpServer.name,
+        version: mcpServer.version
       });
     }
 
     // Handle POST requests
-    const { method, params } = req.body || {};
+    const { method, params, id } = req.body || {};
 
-    console.log(`MCP Request: ${method}`, params);
+    console.log(`MCP POST Request: ${method}`);
+    if (params) {
+      console.log('Parameters:', JSON.stringify(params, null, 2));
+    }
+
+    // Build response with id if provided (JSONRPC style)
+    const response = (data) => {
+      if (id !== undefined) {
+        return { ...data, id };
+      }
+      return data;
+    };
 
     switch (method) {
       case "initialize":
-        // Handle MCP initialization handshake
-        res.json({
+        console.log("Handling initialize request");
+        return res.json(response({
           protocolVersion: "2025-06-18",
           capabilities: {
-            tools: {
-              listChanged: false
-            }
+            tools: {}
           },
           serverInfo: {
             name: mcpServer.name,
             version: mcpServer.version
           }
-        });
-        break;
+        }));
 
       case "tools/list":
-      case "list_tools":
-      case "listTools":
-        res.json({ tools });
-        break;
+        console.log("Handling tools/list request");
+        return res.json(response({
+          tools: tools
+        }));
 
       case "tools/call":
-      case "call_tool":
-      case "callTool":
+        console.log("Handling tools/call request");
         const toolParams = params || {};
         const result = handleToolCall(
-          toolParams.name || toolParams.tool_name, 
-          toolParams.arguments || toolParams.args || {}
+          toolParams.name, 
+          toolParams.arguments || {}
         );
         if (result.error) {
-          res.status(400).json({ error: result.error });
-        } else {
-          res.json(result);
+          return res.status(400).json(response({ 
+            error: { 
+              message: result.error 
+            } 
+          }));
         }
-        break;
+        return res.json(response(result));
 
       case "ping":
-        // Some MCP clients send ping to check connection
-        res.json({ pong: true, timestamp: new Date().toISOString() });
-        break;
+        console.log("Handling ping request");
+        return res.json(response({ 
+          pong: true, 
+          timestamp: new Date().toISOString() 
+        }));
 
       default:
-        // If no method specified, assume it's a connection test
-        if (!method) {
-          res.json({
-            name: mcpServer.name,
-            version: mcpServer.version,
-            protocolVersion: "2025-06-18",
-            capabilities: {
-              tools: true
-            },
-            status: "ready"
-          });
-        } else {
-          res.status(400).json({ error: `Unsupported method: ${method}` });
-        }
+        console.log(`Unknown method: ${method}`);
+        return res.status(400).json(response({ 
+          error: { 
+            message: `Unsupported method: ${method}` 
+          } 
+        }));
     }
   } catch (error) {
     console.error("MCP request error:", error);
     res.status(500).json({ 
-      error: error.message || "Internal server error" 
+      error: { 
+        message: error.message || "Internal server error" 
+      }
     });
   }
 });
 
+// Additional endpoints Voiceflow might try
+app.post("/", async (req, res) => {
+  console.log("POST to root / - redirecting to /mcp");
+  req.url = '/mcp';
+  app.handle(req, res);
+});
+
+app.get("/mcp/tools", (req, res) => {
+  console.log("GET /mcp/tools");
+  res.json({ tools });
+});
+
+app.post("/mcp/tools", (req, res) => {
+  console.log("POST /mcp/tools");
+  res.json({ tools });
+});
+
 // OPTIONS for CORS preflight
-app.options("/mcp", (req, res) => {
+app.options("*", (req, res) => {
   res.header("Access-Control-Allow-Origin", "*");
   res.header("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
-  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
+  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With");
   res.sendStatus(200);
 });
 
@@ -294,7 +323,8 @@ app.get("/health", (req, res) => {
     status: "ok", 
     server: mcpServer.name, 
     version: mcpServer.version,
-    timestamp: new Date().toISOString()
+    timestamp: new Date().toISOString(),
+    tools_count: tools.length
   });
 });
 
@@ -307,23 +337,16 @@ app.get("/", (req, res) => {
     endpoints: {
       "GET /": "This documentation",
       "GET /health": "Health check",
-      "GET /mcp": "MCP server info",
+      "GET /mcp": "Get tools list",
       "POST /mcp": "MCP protocol endpoint",
     },
     tools: tools.map(t => ({
       name: t.name,
       description: t.description
     })),
-    mcp_methods: [
-      "initialize - Handshake with MCP client",
-      "tools/list - Get available tools",
-      "tools/call - Execute a tool"
-    ],
-    voiceflow_config: {
-      url: "https://get-tools-cleopatterson.replit.app/mcp",
-      headers: {
-        "Content-Type": "application/json"
-      }
+    test_with_curl: {
+      list_tools: `curl -X POST ${process.env.REPL_SLUG ? `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co` : 'http://localhost:3000'}/mcp -H "Content-Type: application/json" -d '{"method":"tools/list"}'`,
+      call_tool: `curl -X POST ${process.env.REPL_SLUG ? `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co` : 'http://localhost:3000'}/mcp -H "Content-Type: application/json" -d '{"method":"tools/call","params":{"name":"test_echo","arguments":{"message":"Hello"}}}'`
     }
   });
 });
@@ -331,7 +354,6 @@ app.get("/", (req, res) => {
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`✅ MCP Server running on port ${PORT}`);
-  console.log(`📍 Health check: http://localhost:${PORT}/health`);
-  console.log(`📍 API docs: http://localhost:${PORT}/`);
-  console.log(`📍 MCP endpoint: http://localhost:${PORT}/mcp`);
+  console.log(`📍 Server URL: ${process.env.REPL_SLUG ? `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co` : `http://localhost:${PORT}`}`);
+  console.log(`📍 Check health: ${process.env.REPL_SLUG ? `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co` : `http://localhost:${PORT}`}/health`);
 });
