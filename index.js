@@ -380,7 +380,65 @@ const tools = [
       required: ["length", "width", "height"],
     },
   },
+  // Pattern-Learning Job Analysis Tool
+  {
+    name: "analyze_job_patterns",
+    description: "Analyze historical jobs to understand what questions to ask, how to classify jobs, and what details matter. This tool helps the AI learn from past successful job briefs rather than following rigid rules.",
+
+    inputSchema: {
+      type: "object",
+      properties: {
+        customer_description: {
+          type: "string",
+          description: "What the customer has said about their job so far",
+          minLength: 3
+        },
+
+        known_details: {
+          type: "object",
+          description: "Details we've already collected",
+          properties: {
+            category: { type: "string" },
+            subtype: { type: "string" },
+            size: { type: "string" },
+            rooms_mentioned: { type: "array", items: { type: "string" } },
+            property_type: { type: "string" },
+            other_details: { type: "object" }
+          }
+        },
+
+        need_help_with: {
+          type: "array",
+          description: "What the AI needs help figuring out",
+          items: {
+            type: "string",
+            enum: [
+              "next_question",      // What should I ask next?
+              "classification",     // What category/subtype/size is this?
+              "missing_details",    // What important details am I missing?
+              "price_factors",      // What affects the price for this job?
+              "completion_check"    // Do I have enough info to create the brief?
+            ]
+          },
+          default: ["next_question", "classification"]
+        },
+
+        sample_size: {
+          type: "integer",
+          minimum: 5,
+          maximum: 50,
+          default: 20,
+          description: "How many similar historical jobs to analyze"
+        }
+      },
+      required: ["customer_description", "need_help_with"]
+    }
+  }
 ];
+
+
+
+
 
 // Tool implementations
 async function handleToolCall(name, args) {
@@ -396,7 +454,364 @@ async function handleToolCall(name, args) {
           },
         ],
       };
+      case "analyze_job_patterns":
+        try {
+          const { 
+            customer_description, 
+            known_details = {}, 
+            need_help_with, 
+            sample_size = 20 
+          } = args;
 
+          // Extract key signals from customer description
+          const desc_lower = customer_description.toLowerCase();
+          const signals = {
+            has_room_count: /\b(\d+|one|two|three|four|five|six)\s*(bed|room|bedroom)/i.test(customer_description),
+            has_property_type: /(house|apartment|unit|townhouse|villa)/i.test(desc_lower),
+            mentions_full: /(full|entire|whole|complete)/i.test(desc_lower),
+            mentions_inside: /(interior|inside|internal)/i.test(desc_lower),
+            mentions_outside: /(exterior|outside|external|weatherboard|render)/i.test(desc_lower),
+            specific_rooms: desc_lower.match(/(bedroom|bathroom|kitchen|living|lounge|hallway|laundry)/gi) || [],
+            has_measurements: /\b\d+\s*(m|meter|metre|sqm|m2|square)/i.test(desc_lower)
+          };
+
+          // Build smart query to find similar jobs
+          const searchTerms = [];
+          const whereConditions = [];
+          const params = [];
+
+          // Core search - find jobs with similar descriptions
+          if (customer_description.length > 10) {
+            // Extract meaningful phrases for searching
+            const keyPhrases = customer_description
+              .replace(/[^a-zA-Z0-9\s]/g, '')
+              .split(' ')
+              .filter(word => word.length > 3)
+              .slice(0, 5)
+              .join(' ');
+
+            params.push(`%${keyPhrases}%`);
+            whereConditions.push(`(job_description_cleaned ILIKE $${params.length} OR job_description ILIKE $${params.length})`);
+          }
+
+          // If we have a suspected category, bias toward it
+          if (known_details.category) {
+            params.push(known_details.category);
+            // Use OR to still get variety but weight toward suspected category
+            whereConditions.push(`(category = $${params.length} OR category IS NOT NULL)`);
+          }
+
+          const whereSql = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : '';
+
+          // Get similar historical jobs
+          const sql = `
+            WITH ranked_jobs AS (
+              SELECT 
+                id,
+                category,
+                subtype,
+                size,
+                total_price,
+                job_description,
+                job_description_cleaned,
+                keywords,
+                -- Score similarity based on description overlap
+                CASE 
+                  WHEN job_description_cleaned ILIKE $1 THEN 3
+                  WHEN job_description ILIKE $1 THEN 2
+                  ELSE 1
+                END as similarity_score
+              FROM jobs
+              ${whereSql}
+              ORDER BY similarity_score DESC, id DESC
+              LIMIT $${params.length + 1}
+            )
+            SELECT * FROM ranked_jobs
+          `;
+
+          const { rows: similarJobs } = await pool.query(sql, [...params, sample_size]);
+
+          if (similarJobs.length < 3) {
+            // Fallback to broader search if too few results
+            const fallbackSql = `
+              SELECT category, subtype, size, total_price, job_description, job_description_cleaned, keywords
+              FROM jobs
+              WHERE job_description_cleaned IS NOT NULL
+              ORDER BY RANDOM()
+              LIMIT $1
+            `;
+            const { rows: fallbackJobs } = await pool.query(fallbackSql, [sample_size]);
+            similarJobs.push(...fallbackJobs);
+          }
+
+          // Analyze patterns in similar jobs
+          const patterns = {
+            categories: {},
+            subtypes: {},
+            sizes: {},
+            common_details: new Set(),
+            question_patterns: new Set(),
+            price_ranges: { low: null, high: null, avg: null },
+            detail_frequency: {}
+          };
+
+          // Process each similar job
+          similarJobs.forEach(job => {
+            // Count categories/subtypes/sizes
+            if (job.category) patterns.categories[job.category] = (patterns.categories[job.category] || 0) + 1;
+            if (job.subtype) patterns.subtypes[job.subtype] = (patterns.subtypes[job.subtype] || 0) + 1;
+            if (job.size) patterns.sizes[job.size] = (patterns.sizes[job.size] || 0) + 1;
+
+            // Extract common details from descriptions
+            const jobDesc = (job.job_description_cleaned || job.job_description || '').toLowerCase();
+
+            // Look for specific details that were captured
+            if (jobDesc.includes('ceiling')) patterns.detail_frequency['ceilings'] = (patterns.detail_frequency['ceilings'] || 0) + 1;
+            if (jobDesc.includes('trim') || jobDesc.includes('skirting')) patterns.detail_frequency['trims'] = (patterns.detail_frequency['trims'] || 0) + 1;
+            if (jobDesc.includes('door')) patterns.detail_frequency['doors'] = (patterns.detail_frequency['doors'] || 0) + 1;
+            if (jobDesc.includes('wall')) patterns.detail_frequency['walls'] = (patterns.detail_frequency['walls'] || 0) + 1;
+            if (/\b\d+\s*m(eter|etre)?s?\b/.test(jobDesc)) patterns.detail_frequency['measurements'] = (patterns.detail_frequency['measurements'] || 0) + 1;
+            if (/(single|double|two)[\s-]?stor/.test(jobDesc)) patterns.detail_frequency['storeys'] = (patterns.detail_frequency['storeys'] || 0) + 1;
+            if (/(house|apartment|unit|townhouse)/.test(jobDesc)) patterns.detail_frequency['property_type'] = (patterns.detail_frequency['property_type'] || 0) + 1;
+
+            // Detect question patterns based on job type
+            if (job.category === 'interior') {
+              if (job.size === 'small' && !signals.mentions_full) {
+                patterns.question_patterns.add('confirm_specific_rooms');
+              } else if (job.size === 'medium' || job.size === 'large') {
+                patterns.question_patterns.add('confirm_whole_property');
+                patterns.question_patterns.add('ask_property_type');
+              }
+            }
+          });
+
+          // Calculate price statistics
+          const prices = similarJobs.map(j => j.total_price).filter(p => p != null && p > 0);
+          if (prices.length > 0) {
+            patterns.price_ranges.low = Math.min(...prices);
+            patterns.price_ranges.high = Math.max(...prices);
+            patterns.price_ranges.avg = Math.round(prices.reduce((a, b) => a + b, 0) / prices.length);
+          }
+
+          // Build response based on what AI needs help with
+          let response = {
+            patterns_found: similarJobs.length,
+            confidence: similarJobs.length >= 5 ? 'high' : similarJobs.length >= 3 ? 'medium' : 'low'
+          };
+
+          // 1. NEXT QUESTION RECOMMENDATION
+          if (need_help_with.includes('next_question')) {
+            response.next_question = {};
+
+            // Determine what's missing based on patterns
+            const detailCoverage = Object.entries(patterns.detail_frequency)
+              .map(([detail, count]) => ({
+                detail,
+                frequency: (count / similarJobs.length) * 100
+              }))
+              .sort((a, b) => b.frequency - a.frequency);
+
+            // Smart question logic based on patterns and signals
+            if (signals.mentions_full && !known_details.property_type) {
+              response.next_question = {
+                question: "What type of property is it - house, apartment, or townhouse?",
+                reason: `${detailCoverage.find(d => d.detail === 'property_type')?.frequency.toFixed(0)}% of similar 'full property' jobs specified property type`,
+                options: ["House", "Apartment", "Townhouse", "Villa"]
+              };
+            } else if (signals.has_room_count && !signals.mentions_full && !known_details.scope_confirmed) {
+              const roomCount = signals.specific_rooms.length || 'these';
+              response.next_question = {
+                question: `Just to confirm - is this for ${roomCount} specific rooms only, or the whole property?`,
+                reason: "Similar jobs with room counts often needed this clarification",
+                options: ["Just these rooms", "Whole property"]
+              };
+            } else if (patterns.detail_frequency['ceilings'] > similarJobs.length * 0.7 && !known_details.surfaces) {
+              response.next_question = {
+                question: "Does this include ceilings, trims, and doors as well as walls?",
+                reason: `${detailCoverage.find(d => d.detail === 'ceilings')?.frequency.toFixed(0)}% of similar jobs specified ceiling details`,
+                options: ["Walls only", "Walls and ceilings", "Everything (walls, ceilings, trims, doors)"]
+              };
+            } else if (patterns.detail_frequency['storeys'] > similarJobs.length * 0.5 && !known_details.storeys) {
+              response.next_question = {
+                question: "Is this a single or double storey property?",
+                reason: `${detailCoverage.find(d => d.detail === 'storeys')?.frequency.toFixed(0)}% of similar exterior jobs specified storeys`,
+                options: ["Single storey", "Double storey", "Split level"]
+              };
+            } else if (signals.mentions_outside && patterns.detail_frequency['measurements'] > similarJobs.length * 0.4) {
+              response.next_question = {
+                question: "Could you provide approximate dimensions or area to be painted?",
+                reason: "Helps provide more accurate pricing for exterior work",
+                type: "text"
+              };
+            }
+          }
+
+          // 2. CLASSIFICATION PREDICTION
+          if (need_help_with.includes('classification')) {
+            response.classification = {
+              category: null,
+              subtype: null,
+              size: null,
+              confidence_scores: {}
+            };
+
+            // Predict category
+            if (Object.keys(patterns.categories).length > 0) {
+              const totalCat = Object.values(patterns.categories).reduce((a, b) => a + b, 0);
+              const catPredictions = Object.entries(patterns.categories)
+                .map(([cat, count]) => ({ 
+                  category: cat, 
+                  probability: (count / totalCat * 100).toFixed(0) + '%' 
+                }))
+                .sort((a, b) => parseInt(b.probability) - parseInt(a.probability));
+
+              response.classification.category = catPredictions[0].category;
+              response.classification.confidence_scores.category = catPredictions;
+            }
+
+            // Predict size based on signals and patterns
+            if (Object.keys(patterns.sizes).length > 0) {
+              const totalSize = Object.values(patterns.sizes).reduce((a, b) => a + b, 0);
+              const sizePredictions = Object.entries(patterns.sizes)
+                .map(([size, count]) => ({ 
+                  size, 
+                  probability: (count / totalSize * 100).toFixed(0) + '%' 
+                }))
+                .sort((a, b) => parseInt(b.probability) - parseInt(a.probability));
+
+              // Adjust based on signals
+              if (signals.specific_rooms.length === 1) {
+                response.classification.size = 'small';
+                response.classification.confidence_scores.size_override = "Single room mentioned → small";
+              } else if (signals.specific_rooms.length >= 2 && signals.specific_rooms.length <= 4) {
+                response.classification.size = 'medium';
+                response.classification.confidence_scores.size_override = `${signals.specific_rooms.length} rooms mentioned → medium`;
+              } else {
+                response.classification.size = sizePredictions[0].size;
+                response.classification.confidence_scores.size = sizePredictions;
+              }
+            }
+          }
+
+          // 3. MISSING DETAILS CHECK
+          if (need_help_with.includes('missing_details')) {
+            const criticalDetails = [];
+
+            // Check what's commonly specified but missing here
+            Object.entries(patterns.detail_frequency).forEach(([detail, count]) => {
+              const frequency = (count / similarJobs.length) * 100;
+              if (frequency > 50 && !known_details[detail]) {
+                criticalDetails.push({
+                  detail,
+                  frequency: frequency.toFixed(0) + '%',
+                  importance: frequency > 80 ? 'critical' : frequency > 60 ? 'important' : 'useful'
+                });
+              }
+            });
+
+            response.missing_details = criticalDetails.sort((a, b) => parseInt(b.frequency) - parseInt(a.frequency));
+          }
+
+          // 4. PRICE FACTORS
+          if (need_help_with.includes('price_factors') && patterns.price_ranges.avg) {
+            response.price_estimate = {
+              range: `$${Math.round(patterns.price_ranges.low)} - $${Math.round(patterns.price_ranges.high)}`,
+              average: `$${patterns.price_ranges.avg}`,
+              based_on: `${prices.length} similar jobs`,
+              factors: []
+            };
+
+            // Identify price-influencing factors
+            if (patterns.sizes.large > patterns.sizes.small) {
+              response.price_estimate.factors.push("Size significantly affects price");
+            }
+            if (patterns.detail_frequency.ceilings > similarJobs.length * 0.5) {
+              response.price_estimate.factors.push("Including ceilings adds 20-30% to cost");
+            }
+          }
+
+          // 5. COMPLETION CHECK
+          if (need_help_with.includes('completion_check')) {
+            const required = ['category', 'size'];
+            const nice_to_have = ['property_type', 'surfaces', 'timing'];
+
+            const missing_required = required.filter(field => !known_details[field] && !response.classification?.[field]);
+            const missing_nice = nice_to_have.filter(field => !known_details[field]);
+
+            response.completion_status = {
+              ready: missing_required.length === 0,
+              missing_required,
+              missing_nice,
+              recommendation: missing_required.length === 0 
+                ? "You have enough information to create a job brief" 
+                : `Still need: ${missing_required.join(', ')}`
+            };
+          }
+
+          // Format the response for the AI
+          let formattedResponse = `📊 **Analysis of ${similarJobs.length} Similar Jobs**\n\n`;
+
+          if (response.classification) {
+            formattedResponse += `**📋 Classification Prediction:**\n`;
+            formattedResponse += `• Category: ${response.classification.category} (${response.classification.confidence_scores.category?.[0]?.probability || 'uncertain'})\n`;
+            formattedResponse += `• Size: ${response.classification.size}${response.classification.confidence_scores.size_override ? ` (${response.classification.confidence_scores.size_override})` : ''}\n\n`;
+          }
+
+          if (response.next_question) {
+            formattedResponse += `**❓ Recommended Next Question:**\n`;
+            formattedResponse += `"${response.next_question.question}"\n`;
+            formattedResponse += `Reason: ${response.next_question.reason}\n`;
+            if (response.next_question.options) {
+              formattedResponse += `Options: ${response.next_question.options.join(', ')}\n`;
+            }
+            formattedResponse += '\n';
+          }
+
+          if (response.missing_details) {
+            formattedResponse += `**🔍 Commonly Captured Details You're Missing:**\n`;
+            response.missing_details.forEach(detail => {
+              formattedResponse += `• ${detail.detail}: ${detail.frequency} of similar jobs (${detail.importance})\n`;
+            });
+            formattedResponse += '\n';
+          }
+
+          if (response.price_estimate) {
+            formattedResponse += `**💰 Price Intelligence:**\n`;
+            formattedResponse += `• Range: ${response.price_estimate.range}\n`;
+            formattedResponse += `• Average: ${response.price_estimate.average}\n`;
+            formattedResponse += `• Based on: ${response.price_estimate.based_on}\n`;
+            response.price_estimate.factors.forEach(factor => {
+              formattedResponse += `• ${factor}\n`;
+            });
+            formattedResponse += '\n';
+          }
+
+          if (response.completion_status) {
+            formattedResponse += `**✅ Completion Status:**\n`;
+            formattedResponse += response.completion_status.recommendation + '\n';
+          }
+
+          // Add raw JSON for AI to process
+          formattedResponse += `\n<json_data>\n${JSON.stringify(response, null, 2)}\n</json_data>`;
+
+          return {
+            content: [{
+              type: "text",
+              text: formattedResponse
+            }]
+          };
+
+        } catch (error) {
+          console.error('Pattern analysis error:', error);
+          return {
+            content: [{
+              type: "text",
+              text: `❌ Error analyzing patterns: ${error.message}\n\nFalling back to standard questions.`
+            }]
+          };
+        }
+
+      
     case "service_seeking_price_estimator":
       const description = args.description.toLowerCase();
       let basePrice = 500;
