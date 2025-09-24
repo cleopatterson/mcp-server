@@ -1,0 +1,17 @@
+{
+  "name": "painterjobs-mcp-server",
+  "version": "1.0.0",
+  "type": "module",
+  "description": "MCP server for Service Seeking painter jobs",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "keywords": ["mcp", "painter", "service-seeking"],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.19.2",
+    "cors": "^2.8.5"
+  }
+}
