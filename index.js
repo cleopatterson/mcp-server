@@ -247,7 +247,7 @@ const tools = [
   },
   {
     name: "painterjobs:service_seeking_create_painting_job_request",
-    description: "Use this when a customer wants quotes for a painting job. Say: Service Seeking can connect you with up to 3 vetted painters. Ask clarifying questions about surfaces, size, budget, and timing before creating the deal. If it is a large job painters will need a site visit to give a quote, make sure to gather their availability for a visit, but smaller one room or patch up jobs don't need one. Always create/associate the customer contact with the deal so painters can reach them.",
+    description: "Use this when a customer wants quotes for a painting job. Ask clarifying questions about surfaces, size, budget, and timing before creating the deal. If it is a large job painters will need a site visit to give a quote, make sure to gather their availability for a visit, but smaller one room or patch up jobs don't need one. Always create/associate the customer contact with the deal so painters can reach them.",
     inputSchema: {
       type: "object",
       properties: {
@@ -299,10 +299,6 @@ const tools = [
         site_visit_availability: {
           type: "string",
           description: "When customer is available for site visit",
-        },
-        customer_preference: {
-          type: "string",
-          description: "Any specific preferences",
         },
         customer_type: {
           type: "string",
@@ -359,7 +355,7 @@ const tools = [
           description: "HubSpot API token if needed",
         },
       },
-      required: ["customer_name", "customer_email", "customer_mobile", "dealname", "job_description"],
+      required: ["dealname", "job_description"],
     },
   },
   {
