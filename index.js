@@ -2,6 +2,8 @@
 import express from "express";
 import cors from "cors";
 
+console.log("🚀 Server starting - Version 3.0 with JSONRPC support");
+
 const app = express();
 app.use(cors());
 app.use(express.json());
@@ -80,7 +82,7 @@ const tools = [
   },
 ];
 
-// Tool implementations
+// Tool implementations (keeping your existing implementation)
 function handleToolCall(name, args) {
   console.log(`Calling tool: ${name} with args:`, args);
 
@@ -215,26 +217,37 @@ app.all("/mcp", async (req, res) => {
       });
     }
 
-    // Handle POST requests
-    const { method, params, id } = req.body || {};
+    // Handle POST requests with JSONRPC format
+    const { method, params, jsonrpc, id } = req.body || {};
 
     console.log(`MCP POST Request: ${method}`);
     if (params) {
       console.log('Parameters:', JSON.stringify(params, null, 2));
     }
 
-    // Build response with id if provided (JSONRPC style)
-    const response = (data) => {
-      if (id !== undefined) {
-        return { ...data, id };
+    // Helper to build JSONRPC response
+    const jsonrpcResponse = (result, error = null) => {
+      const response = {
+        jsonrpc: "2.0",
+        id: id !== undefined ? id : null
+      };
+
+      if (error) {
+        response.error = {
+          code: -32603,
+          message: error
+        };
+      } else {
+        response.result = result;
       }
-      return data;
+
+      return response;
     };
 
     switch (method) {
       case "initialize":
-        console.log("Handling initialize request");
-        return res.json(response({
+        console.log("Handling initialize request - sending JSONRPC response");
+        return res.json(jsonrpcResponse({
           protocolVersion: "2025-06-18",
           capabilities: {
             tools: {}
@@ -247,7 +260,7 @@ app.all("/mcp", async (req, res) => {
 
       case "tools/list":
         console.log("Handling tools/list request");
-        return res.json(response({
+        return res.json(jsonrpcResponse({
           tools: tools
         }));
 
@@ -259,36 +272,32 @@ app.all("/mcp", async (req, res) => {
           toolParams.arguments || {}
         );
         if (result.error) {
-          return res.status(400).json(response({ 
-            error: { 
-              message: result.error 
-            } 
-          }));
+          return res.json(jsonrpcResponse(null, result.error));
         }
-        return res.json(response(result));
+        return res.json(jsonrpcResponse(result));
 
       case "ping":
         console.log("Handling ping request");
-        return res.json(response({ 
+        return res.json(jsonrpcResponse({ 
           pong: true, 
           timestamp: new Date().toISOString() 
         }));
 
       default:
         console.log(`Unknown method: ${method}`);
-        return res.status(400).json(response({ 
-          error: { 
-            message: `Unsupported method: ${method}` 
-          } 
-        }));
+        return res.json(jsonrpcResponse(null, `Unsupported method: ${method}`));
     }
   } catch (error) {
     console.error("MCP request error:", error);
-    res.status(500).json({ 
-      error: { 
-        message: error.message || "Internal server error" 
+    const errorResponse = {
+      jsonrpc: "2.0",
+      id: req.body?.id || null,
+      error: {
+        code: -32603,
+        message: error.message || "Internal server error"
       }
-    });
+    };
+    res.status(500).json(errorResponse);
   }
 });
 
@@ -297,16 +306,6 @@ app.post("/", async (req, res) => {
   console.log("POST to root / - redirecting to /mcp");
   req.url = '/mcp';
   app.handle(req, res);
-});
-
-app.get("/mcp/tools", (req, res) => {
-  console.log("GET /mcp/tools");
-  res.json({ tools });
-});
-
-app.post("/mcp/tools", (req, res) => {
-  console.log("POST /mcp/tools");
-  res.json({ tools });
 });
 
 // OPTIONS for CORS preflight
@@ -331,29 +330,50 @@ app.get("/health", (req, res) => {
 // Root endpoint with API documentation
 app.get("/", (req, res) => {
   res.json({
-    message: "🎨 PainterJobs MCP Server",
+    message: "🎨 PainterJobs MCP Server (JSONRPC)",
     version: mcpServer.version,
     protocolVersion: "2025-06-18",
     endpoints: {
       "GET /": "This documentation",
       "GET /health": "Health check",
-      "GET /mcp": "Get tools list",
-      "POST /mcp": "MCP protocol endpoint",
+      "POST /mcp": "MCP JSONRPC endpoint",
     },
     tools: tools.map(t => ({
       name: t.name,
       description: t.description
     })),
-    test_with_curl: {
-      list_tools: `curl -X POST ${process.env.REPL_SLUG ? `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co` : 'http://localhost:3000'}/mcp -H "Content-Type: application/json" -d '{"method":"tools/list"}'`,
-      call_tool: `curl -X POST ${process.env.REPL_SLUG ? `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co` : 'http://localhost:3000'}/mcp -H "Content-Type: application/json" -d '{"method":"tools/call","params":{"name":"test_echo","arguments":{"message":"Hello"}}}'`
+    test_jsonrpc: {
+      initialize: {
+        jsonrpc: "2.0",
+        id: 1,
+        method: "initialize",
+        params: {
+          protocolVersion: "2025-06-18",
+          capabilities: {},
+          clientInfo: { name: "test", version: "1.0" }
+        }
+      },
+      list_tools: {
+        jsonrpc: "2.0",
+        id: 2,
+        method: "tools/list"
+      },
+      call_tool: {
+        jsonrpc: "2.0",
+        id: 3,
+        method: "tools/call",
+        params: {
+          name: "test_echo",
+          arguments: { message: "Hello" }
+        }
+      }
     }
   });
 });
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`✅ MCP Server running on port ${PORT}`);
+  console.log(`✅ MCP Server (JSONRPC) running on port ${PORT}`);
   console.log(`📍 Server URL: ${process.env.REPL_SLUG ? `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co` : `http://localhost:${PORT}`}`);
   console.log(`📍 Check health: ${process.env.REPL_SLUG ? `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co` : `http://localhost:${PORT}`}/health`);
 });
