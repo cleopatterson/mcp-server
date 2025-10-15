@@ -50,15 +50,14 @@ function normalizeWeights(w = {}) {
   };
 }
 
-async function rankPainters({ suburb, postcode, area, region, limit = 5, weights = {} }) {
+async function rankPainters({ postcode, area, region, limit = 5, weights = {} }) {
   const W = normalizeWeights(weights);
   const params = [];
   const where = [];
 
-  if (postcode) { params.push(postcode); where.push(`postcode = $${params.length}`); }
-  if (suburb)   { params.push(suburb);   where.push(`lower(suburb) = lower($${params.length})`); }
-  if (area)     { params.push(area);     where.push(`lower(area) = lower($${params.length})`); }
-  if (region)   { params.push(region);   where.push(`lower(region) = lower($${params.length})`); }
+  if (postcode) { params.push(postcode); where.push(`postcode = ${params.length}`); }
+  if (area)     { params.push(area);     where.push(`lower(area) = lower(${params.length})`); }
+  if (region)   { params.push(region);   where.push(`lower(region) = lower(${params.length})`); }
 
   const sql = `
     select
@@ -69,7 +68,7 @@ async function rankPainters({ suburb, postcode, area, region, limit = 5, weights
       whatsapp_number,
       region,
       area,
-      suburb,
+      postcode,
       star_rating::numeric as star_rating,
       jobs_won::numeric as jobs_won,
       number_of_reviews::numeric as number_of_reviews,
@@ -141,9 +140,13 @@ const TOOLS = [
           type: "string",
           description: "Job location postcode (e.g., '2000' for Sydney CBD)"
         },
-        suburb: {
+        area: {
           type: "string",
-          description: "Suburb name (optional if postcode provided)"
+          description: "Area name (e.g., 'Inner West', 'Northern Beaches')"
+        },
+        region: {
+          type: "string",
+          description: "Region name (e.g., 'Sydney', 'Melbourne')"
         },
         limit: {
           type: "integer",
@@ -280,7 +283,7 @@ async function getTopPainters(args) {
       return {
         content: [{
           type: "text",
-          text: `❌ No painters found for ${args.suburb || 'postcode'} ${args.postcode}\n\nTry a nearby suburb or broader area.`
+          text: `❌ No painters found for ${args.area || 'postcode'} ${args.postcode}\n\nTry a nearby area or broader region.`
         }]
       };
     }
@@ -299,7 +302,8 @@ async function getTopPainters(args) {
         type: "painter_list",
         location: {
           postcode: args.postcode,
-          suburb: args.suburb
+          area: args.area,
+          region: args.region
         },
         painters: painters.map(p => ({
           id: p.id,
@@ -309,7 +313,7 @@ async function getTopPainters(args) {
           reviews: Number(p.number_of_reviews || 0),
           jobs_won: Number(p.jobs_won || 0),
           location: {
-            suburb: p.suburb,
+            postcode: p.postcode,
             area: p.area,
             region: p.region
           },
@@ -322,7 +326,7 @@ async function getTopPainters(args) {
       },
       _meta: {
         "openai/outputTemplate": "ui://widget/painter-carousel.html",
-        "openai/widgetDescription": `Showing top ${painters.length} painters in ${args.suburb || args.postcode}`,
+        "openai/widgetDescription": `Showing top ${painters.length} painters in ${args.area || args.region || `postcode ${args.postcode}`}`,
         "openai/widgetAccessible": true
       }
     };
