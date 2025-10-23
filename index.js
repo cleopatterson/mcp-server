@@ -329,26 +329,43 @@ async function getTopPainters(args) {
   };
 }
 
-// MCP Protocol Endpoints
+// MCP Protocol Endpoints with JSONRPC 2.0 support
 app.post("/mcp", async (req, res) => {
+  const { method, params, id } = req.body;
+
+  console.log(`[MCP] ${method}`);
+
+  const respond = (result, error = null) => ({
+    jsonrpc: "2.0",
+    id,
+    ...(error ? { error } : { result })
+  });
+
   try {
-    const { method, params } = req.body;
-
-    console.log(`MCP Request: ${method}`, params);
-
     switch (method) {
+      case "initialize":
+        return res.json(respond({
+          protocolVersion: "2025-06-18",
+          capabilities: { 
+            tools: {},
+            resources: {}
+          },
+          serverInfo: {
+            name: "painterjobs-mcp",
+            version: "1.0.0"
+          }
+        }));
+
       case "tools/list":
-        res.json({ tools });
-        break;
+        return res.json(respond({ tools }));
 
       case "resources/list":
-        res.json({ resources });
-        break;
+        return res.json(respond({ resources }));
 
       case "resources/read":
         const { uri } = params;
         if (uri === "painterjobs://valid-services") {
-          res.json({
+          return res.json(respond({
             contents: [
               {
                 uri,
@@ -359,31 +376,39 @@ app.post("/mcp", async (req, res) => {
                 }, null, 2)
               }
             ]
-          });
+          }));
         } else {
-          res.status(404).json({ error: `Unknown resource: ${uri}` });
+          return res.json(respond(null, {
+            code: -32602,
+            message: `Unknown resource: ${uri}`
+          }));
         }
-        break;
 
       case "tools/call":
         const { name, arguments: args } = params;
         
         if (name === "get_top_painters") {
           const result = await getTopPainters(args || {});
-          res.json(result);
+          return res.json(respond(result));
         } else {
-          res.status(404).json({ error: `Unknown tool: ${name}` });
+          return res.json(respond(null, {
+            code: -32602,
+            message: `Unknown tool: ${name}`
+          }));
         }
-        break;
 
       default:
-        res.status(400).json({ error: `Unsupported method: ${method}` });
+        return res.json(respond(null, {
+          code: -32601,
+          message: `Method not found: ${method}`
+        }));
     }
   } catch (error) {
     console.error("MCP request error:", error);
-    res.status(500).json({ 
-      error: error.message || "Internal server error" 
-    });
+    return res.json(respond(null, {
+      code: -32603,
+      message: error.message || "Internal server error"
+    }));
   }
 });
 
