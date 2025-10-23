@@ -1,0 +1,213 @@
+# PAINTING CATEGORY KNOWLEDGE BASE
+
+
+## Category Overview
+Service Type: Painting
+Primary Focus: Residential and commercial painting services including interior, exterior, roofs, and specialty surfaces
+
+
+## Subcategory Definitions
+
+
+### 1. INTERIOR HOME PAINTING
+**Definition:** Rooms/areas inside a home (bedroom, bathroom, doors, hallways, kitchen, garage, granny flat, etc.)
+
+
+**Size Determination:**
+- For specific rooms:
+  - Small: 1 room only
+  - Medium: 2-4 rooms total
+  - Large: 5+ rooms total
+- For whole property:
+  - Small: Studio
+  - Medium: 1-3 bed apartment/townhouse
+  - Large: 3+ bed house
+
+
+**Essential Questions:**
+1. If customer says "full/complete/entire/whole interior" → Ask: "What type of property and how many bedrooms?"
+2. If customer lists rooms BUT unclear if that's everything → Ask: "Is this the whole property or just these specific rooms?"
+3. If confirmed whole property → Ask: "What type of property is it - house, apartment, or townhouse?"
+4. If property is a house → Ask: "Is it single or double storey?"
+5. Then ask about surfaces: "Does this include ceilings, trims, and doors as well as walls?"
+
+
+**Example Classifications:**
+- "Living room and two bedrooms" = 3 rooms = Medium
+- "Kitchen and bathroom" = 2 rooms = Medium
+- "Master bedroom" = 1 room = Small
+- "Full interior of 2-bed apartment" = Medium
+
+
+### 2. EXTERIOR HOME PAINTING
+**Definition:** Outside surfaces including external walls, cladding, weatherboards, eaves, trims, gutters, or external structures (garage/shed exterior)
+
+
+**Size Determination:**
+- Small: Partial exterior (single wall, just trims, gutters only)
+- Medium: Full repaint of single-storey home OR compact two-storey
+- Large: Full standard two-storey or larger
+
+
+**Essential Questions:**
+1. "Is this the full exterior or specific areas?"
+2. If full exterior: "How many storeys?"
+
+
+**Example Classifications:**
+- "Front of house only" = Small
+- "Full exterior single storey" = Medium
+- "Complete two-storey exterior" = Large
+
+
+### 3. HOME PAINTING
+**Definition:** BOTH interior AND exterior painting of the same residential property. Single-surface jobs should be classified separately.
+
+
+**Size Determination:**
+- Small: 1-2 interior rooms + minor exterior touch-ups
+- Medium: Partial interior + full exterior (or vice versa), OR full repaint of 2-3 bed home
+- Large: Full interior + exterior repaint of 4+ bed home
+
+
+**Essential Questions:**
+1. "Does this include both interior and exterior?"
+2. If yes: "What's included inside and outside?"
+3. "How many bedrooms?"
+
+
+**Important:** If only interior or only exterior mentioned, DO NOT classify as home painting
+
+
+### 4. ROOF PAINTING
+**Definition:** Any roof surface painting - tiles, Colorbond, metal, corrugated iron, etc.
+
+
+**Size Determination:**
+- Small: Touch-ups/repairs, shed roof, or single-storey granny flat
+- Medium: Full roof of single-storey home
+- Large: Multi-storey home or complex roof design
+
+
+**Essential Questions:**
+1. "Is this a full roof repaint or touch-ups?"
+2. If full: "Single or multi-storey?"
+3. If unclear: "Standard roof or complex design?"
+
+
+### 5. FENCES AND FIXTURES
+**Definition:** Standalone outdoor structures not part of main building - fences, gates, decks, verandahs, railings, pergolas, patios, driveways, carports
+
+
+**Size Determination:**
+- Small: Single small structure, fence <30m, deck/driveway <15m²
+- Medium: Fence 30-60m, deck/driveway 15-40m², 2 structures combined
+- Large: Fence >60m, deck/driveway >40m², OR 3+ structures
+
+
+**Essential Questions:**
+- For fences: "Approximate fence length in meters?"
+- For surfaces: "Approximate area in square meters?"
+- For multiple items: "How many structures need painting?"
+
+
+### 6. FLOOR PAINTING
+**Definition:** Indoor residential floors only (concrete, wood, epoxy coatings). Excludes outdoor surfaces.
+
+
+**Size Determination:** SKIP - Do not collect size for floor painting
+
+
+**Essential Questions:**
+1. "Is this for indoor flooring?"
+2. Focus on floor type and area/rooms
+
+
+### 7. COMMERCIAL
+**Definition:** Non-residential jobs - shops, cafes, offices, warehouses, factories, construction sites
+
+
+**Size Determination:** SKIP - Do not collect size for commercial jobs
+
+
+**Essential Questions:**
+- Focus on type of commercial property and scope of work
+
+
+### 8. SPECIAL TASKS
+**Definition:**
+- Unusual/specialty items (furniture, bulkheads, chimneys, kitchen cabinets, residential carpark line marking)
+- Jobs combining two unrelated categories (e.g., bedroom + fence, roof + deck)
+- EXCEPTION: Interior + exterior of same home = "Home painting" NOT special tasks
+
+
+**Size Determination:** SKIP - Do not collect size for special tasks
+
+
+**Essential Questions:**
+- Focus on understanding specific items/surfaces rather than size
+
+
+## Common Ambiguities & Resolution
+
+
+### Initial Property Type Only
+When customer only provides property type (e.g., "2 bedroom house"):
+→ Ask: "Just checking — are you looking to paint inside, outside, or both?"
+
+
+### Ambiguous Terms
+- "House painting" → Could be interior, exterior, or both - CLARIFY
+- "Interior painting" → Could be full or partial - ASK SCOPE
+- "2 rooms and a fence" → Special tasks (unrelated surfaces)
+- "Whole house" → Confirm if interior, exterior, or both
+
+
+## Question Flow Logic
+
+
+### Priority Order
+1. FIRST: Determine category (what needs painting)
+2. SECOND: Determine scope (full vs partial)
+3. THIRD: Gather size details based on category
+4. FOURTH: Surface/material specifics
+
+
+### Efficiency Rules
+- Ask ONE question at a time
+- Skip questions already answered in initial input
+- If customer said "full interior" don't ask about whole property
+- If customer specified exact rooms, count them for sizing
+
+
+## Category Signal Words
+
+
+**Interior Signals:**
+- Room names (bedroom, kitchen, bathroom, living room)
+- "Interior", "inside", "indoor"
+- "Walls and ceilings"
+
+
+**Exterior Signals:**
+- "Outside", "external", "facade"
+- Weatherboards, render, cladding
+- Eaves, fascia, external walls
+
+
+**Home Painting Signals:**
+- "Whole house", "entire property"
+- "Inside and outside"
+- Both interior and exterior mentions
+
+
+**Commercial Signals:**
+- Shop, office, warehouse, factory
+- Business premises, workplace
+- Non-residential property types
+
+
+**Special Tasks Signals:**
+- Furniture, cabinets, unusual items
+- Unrelated surface combinations
+- Specialty coatings or treatments

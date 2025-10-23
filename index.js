@@ -9,8 +9,14 @@ import express from "express";
 import cors from "cors";
 import fetch from "node-fetch";
 import dotenv from "dotenv";
+import { readFileSync } from "fs";
+import { fileURLToPath } from "url";
+import { dirname, join } from "path";
 
 dotenv.config();
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 const app = express();
 app.use(cors());
@@ -68,6 +74,86 @@ const tools = [
       },
       required: ["postcode", "service"]
     }
+  },
+  {
+    name: "create_job",
+    description: "Create a new painting job as a Deal in HubSpot CRM. Use the painting_knowledge_base resource to ask the right questions for job_description and job_size. Customer contact details should be associated separately.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        job_description: {
+          type: "string",
+          description: "Detailed description of the painting job - derived by asking qualifying questions from the painting_knowledge_base resource"
+        },
+        postcode: {
+          type: "string",
+          description: "4-digit Australian postcode for the job location",
+          pattern: "^[0-9]{4}$"
+        },
+        subtype: {
+          type: "string",
+          description: "Service subcategory - must match one of the valid painting services",
+          enum: VALID_SERVICES
+        },
+        customer_type: {
+          type: "string",
+          description: "Type of customer - 'homeowner' for residential jobs, 'commercial' for business/commercial jobs",
+          enum: ["homeowner", "commercial"]
+        },
+        customer_intent: {
+          type: "string",
+          description: "Customer's readiness level - derived from how soon they need the job done",
+          enum: ["Ready to hire", "Just researching costs"]
+        },
+        timing: {
+          type: "string",
+          description: "When the customer needs the job completed",
+          enum: ["ASAP", "Within the next 2 weeks", "Within the next month", "Just researching"]
+        },
+        job_size: {
+          type: "string",
+          description: "Size/scope of the job - determined using the painting_knowledge_base resource. Note: Some categories skip size collection (Floor Painting, Commercial, Special Tasks) - use 'not_applicable' for these",
+          enum: ["small", "medium", "large", "not_applicable"]
+        },
+        estimate_range: {
+          type: "string",
+          description: "Price estimate range provided to customer, or 'none provided' if no estimate given"
+        },
+        preferred_contact_method: {
+          type: "string",
+          description: "Customer's preferred contact method",
+          enum: ["Mobile phone call", "Text message", "Email", "Any"]
+        },
+        insights_or_red_flags: {
+          type: "string",
+          description: "Additional insights from conversation including: 1) Budget vs estimate discrepancies if estimate_range was provided, 2) Context like 'preparing for sale', 3) Specific details not in job_description (room sizes, roof area, etc.)"
+        },
+        budget: {
+          type: "string",
+          description: "Customer's budget for the job (optional but recommended)"
+        },
+        customer_availability: {
+          type: "string",
+          description: "Customer's availability for site visit - required for larger jobs"
+        },
+        hubspot_token: {
+          type: "string",
+          description: "HubSpot API token (optional - uses HUBSPOT_TOKEN env var if not provided)"
+        }
+      },
+      required: [
+        "job_description",
+        "postcode",
+        "subtype",
+        "customer_type",
+        "customer_intent",
+        "timing",
+        "job_size",
+        "estimate_range",
+        "preferred_contact_method",
+        "insights_or_red_flags"
+      ]
+    }
   }
 ];
 
@@ -78,6 +164,12 @@ const resources = [
     name: "Valid Painting Services",
     description: "List of exact service types that must be used with get_top_painters",
     mimeType: "application/json"
+  },
+  {
+    uri: "painterjobs://painting-knowledge-base",
+    name: "Painting Category Knowledge Base",
+    description: "Comprehensive guide for asking questions to determine job_description, job_size, and subcategory classification for painting jobs",
+    mimeType: "text/plain"
   }
 ];
 
@@ -329,6 +421,164 @@ async function getTopPainters(args) {
   };
 }
 
+// Create Job function - creates a Deal in HubSpot
+async function createJob(args) {
+  const hubspot_token = args.hubspot_token || HUBSPOT_TOKEN;
+
+  if (!hubspot_token) {
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify({
+            success: false,
+            error: "Missing HubSpot API token"
+          }, null, 2)
+        }
+      ]
+    };
+  }
+
+  // Step 1: Get region and area from postcode
+  let region = null;
+  let area = null;
+
+  try {
+    const response = await fetch(POSTCODE_URL);
+    if (!response.ok) throw new Error(`Failed to fetch postcode map: ${response.status}`);
+    const rawText = await response.text();
+    const postcodeMap = JSON.parse(rawText);
+
+    const match = postcodeMap[args.postcode];
+    if (!match) {
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify({
+              success: false,
+              error: `Invalid postcode: ${args.postcode}`
+            }, null, 2)
+          }
+        ]
+      };
+    }
+
+    region = match.region;
+    area = match.area;
+  } catch (err) {
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify({
+            success: false,
+            error: `Postcode lookup failed: ${err.message}`
+          }, null, 2)
+        }
+      ]
+    };
+  }
+
+  // Step 2: Calculate job_size_weight
+  const sizeWeightMap = {
+    "small": 1,
+    "medium": 2,
+    "large": 4,
+    "not_applicable": 0
+  };
+  const job_size_weight = sizeWeightMap[args.job_size] || 0;
+
+  // Step 3: Create dealname from service type
+  const dealname = `${args.subtype} - ${area}`;
+
+  // Step 4: Build HubSpot Deal properties
+  const dealProperties = {
+    dealname: dealname,
+    job_description: args.job_description,
+    region: region,
+    area: area,
+    postcode: args.postcode,
+    subtype: args.subtype,
+    customer_type: args.customer_type,
+    customer_intent: args.customer_intent,
+    timing: args.timing,
+    job_size: args.job_size,
+    job_size_weight: String(job_size_weight),
+    estimate_range: args.estimate_range,
+    preferred_contact_method: args.preferred_contact_method,
+    insights_or_red_flags: args.insights_or_red_flags,
+    // Default values
+    industries: "painter",
+    pipeline: "38341498",
+    dealstage: "81813617",
+    confirmed_company_count: "0",
+    rejected_count: "0",
+    undelivered_count: "0",
+    preferred_number_of_quotes: "5",
+    state: "NSW"
+  };
+
+  // Add optional fields if provided
+  if (args.budget) {
+    dealProperties.budget = args.budget;
+  }
+  if (args.customer_availability) {
+    dealProperties.customer_availability = args.customer_availability;
+  }
+
+  // Step 5: Create Deal in HubSpot
+  try {
+    const response = await fetch("https://api.hubapi.com/crm/v3/objects/deals", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${hubspot_token}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        properties: dealProperties
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.text();
+      throw new Error(`HubSpot API error ${response.status}: ${errorData}`);
+    }
+
+    const dealData = await response.json();
+
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify({
+            success: true,
+            deal_id: dealData.id,
+            dealname: dealname,
+            region: region,
+            area: area,
+            job_size: args.job_size,
+            job_size_weight: job_size_weight,
+            message: "Job created successfully in HubSpot"
+          }, null, 2)
+        }
+      ]
+    };
+  } catch (err) {
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify({
+            success: false,
+            error: `Failed to create deal: ${err.message}`
+          }, null, 2)
+        }
+      ]
+    };
+  }
+}
+
 // MCP Protocol Endpoints with JSONRPC 2.0 support
 app.post("/mcp", async (req, res) => {
   const { method, params, id } = req.body;
@@ -377,6 +627,25 @@ app.post("/mcp", async (req, res) => {
               }
             ]
           }));
+        } else if (uri === "painterjobs://painting-knowledge-base") {
+          try {
+            const knowledgeBasePath = join(__dirname, "painting_knowledge_base.txt");
+            const knowledgeBaseContent = readFileSync(knowledgeBasePath, "utf-8");
+            return res.json(respond({
+              contents: [
+                {
+                  uri,
+                  mimeType: "text/plain",
+                  text: knowledgeBaseContent
+                }
+              ]
+            }));
+          } catch (err) {
+            return res.json(respond(null, {
+              code: -32603,
+              message: `Failed to read knowledge base: ${err.message}`
+            }));
+          }
         } else {
           return res.json(respond(null, {
             code: -32602,
@@ -386,9 +655,12 @@ app.post("/mcp", async (req, res) => {
 
       case "tools/call":
         const { name, arguments: args } = params;
-        
+
         if (name === "get_top_painters") {
           const result = await getTopPainters(args || {});
+          return res.json(respond(result));
+        } else if (name === "create_job") {
+          const result = await createJob(args || {});
           return res.json(respond(result));
         } else {
           return res.json(respond(null, {
@@ -436,16 +708,45 @@ app.get("/", (req, res) => {
       "GET /health": "Health check",
       "POST /mcp": "MCP protocol endpoint"
     },
-    example: {
-      method: "POST",
-      url: "/mcp",
-      body: {
-        method: "tools/call",
-        params: {
-          name: "get_top_painters",
-          arguments: {
-            postcode: "2093",
-            service: "Interior House Painting"
+    examples: {
+      get_top_painters: {
+        method: "POST",
+        url: "/mcp",
+        body: {
+          jsonrpc: "2.0",
+          id: 1,
+          method: "tools/call",
+          params: {
+            name: "get_top_painters",
+            arguments: {
+              postcode: "2093",
+              service: "Interior House Painting"
+            }
+          }
+        }
+      },
+      create_job: {
+        method: "POST",
+        url: "/mcp",
+        body: {
+          jsonrpc: "2.0",
+          id: 2,
+          method: "tools/call",
+          params: {
+            name: "create_job",
+            arguments: {
+              job_description: "Full interior repaint of 3-bedroom apartment including walls, ceilings, and trims",
+              postcode: "2093",
+              subtype: "Interior House Painting",
+              customer_type: "homeowner",
+              customer_intent: "Ready to hire",
+              timing: "Within the next 2 weeks",
+              job_size: "medium",
+              estimate_range: "$3000-$5000",
+              preferred_contact_method: "Mobile phone call",
+              insights_or_red_flags: "Customer preparing property for sale - timeline is important",
+              budget: "$4500"
+            }
           }
         }
       }
