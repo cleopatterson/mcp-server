@@ -509,7 +509,7 @@ async function createJob(args) {
     preferred_contact_method: args.preferred_contact_method,
     insights_or_red_flags: args.insights_or_red_flags,
     // Default values
-    industries: "painter",
+    industry: "painter",
     pipeline: "38341498",
     dealstage: "81813617",
     confirmed_company_count: "0",
