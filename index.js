@@ -170,6 +170,18 @@ const resources = [
     name: "Painting Category Knowledge Base",
     description: "Comprehensive guide for asking questions to determine job_description, job_size, and subcategory classification for painting jobs",
     mimeType: "text/plain"
+  },
+  {
+    uri: "painterjobs://pricing-reference",
+    name: "Painting Pricing Reference Guide",
+    description: "Real-world pricing examples for painting jobs across different categories, scales, and complexities",
+    mimeType: "text/plain"
+  },
+  {
+    uri: "painterjobs://pricing-analysis-guide",
+    name: "Pricing Analysis Guide",
+    description: "Detailed guidance on how to analyze job requirements and provide intelligent price estimates with proper reasoning",
+    mimeType: "text/plain"
   }
 ];
 
@@ -644,6 +656,44 @@ app.post("/mcp", async (req, res) => {
             return res.json(respond(null, {
               code: -32603,
               message: `Failed to read knowledge base: ${err.message}`
+            }));
+          }
+        } else if (uri === "painterjobs://pricing-reference") {
+          try {
+            const pricingReferencePath = join(__dirname, "painting_pricing_reference.txt");
+            const pricingReferenceContent = readFileSync(pricingReferencePath, "utf-8");
+            return res.json(respond({
+              contents: [
+                {
+                  uri,
+                  mimeType: "text/plain",
+                  text: pricingReferenceContent
+                }
+              ]
+            }));
+          } catch (err) {
+            return res.json(respond(null, {
+              code: -32603,
+              message: `Failed to read pricing reference: ${err.message}`
+            }));
+          }
+        } else if (uri === "painterjobs://pricing-analysis-guide") {
+          try {
+            const pricingAnalysisPath = join(__dirname, "pricing_analysis_guide.txt");
+            const pricingAnalysisContent = readFileSync(pricingAnalysisPath, "utf-8");
+            return res.json(respond({
+              contents: [
+                {
+                  uri,
+                  mimeType: "text/plain",
+                  text: pricingAnalysisContent
+                }
+              ]
+            }));
+          } catch (err) {
+            return res.json(respond(null, {
+              code: -32603,
+              message: `Failed to read pricing analysis guide: ${err.message}`
             }));
           }
         } else {

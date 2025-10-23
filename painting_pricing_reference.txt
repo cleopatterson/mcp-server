@@ -1,0 +1,289 @@
+## Painting Job Pricing Examples - Reference Guide
+This document contains real-world examples of painting jobs across different scales and complexities. Use these examples to estimate pricing for similar customer requests.
+
+
+### CATEGORY: SINGLE ROOM - BASIC
+
+
+Example 1: Small Bedroom - Walls Only
+Property Type: Apartment
+Room Count: 1 bedroom
+Work Description: Paint walls only in one small bedroom (3m x 3m). Two coats of paint. Minimal prep required - walls in good condition.
+Price: $500 - $600
+Duration: 1 day
+Materials Cost: ~$135
+
+
+Example 2: Medium Bedroom - Walls Only
+Property Type: House
+Room Count: 1 bedroom
+Work Description: Paint walls in one medium bedroom (4m x 3.5m). Two coats. Light patching and prep work needed.
+Price: $700-900
+Duration: 1 day
+Materials Cost: ~$195
+
+
+Example 3: Large Living Room - Walls Only
+Property Type: House
+Room Count: 1 living room
+Work Description: Paint walls in large living room (6m x 5m). High ceilings (3.5m). Two coats of paint. Moderate prep work.
+Price: $900-1,200
+Duration: 1-2 days
+Materials Cost: ~$360
+
+### CATEGORY: SINGLE ROOM - COMPREHENSIVE
+
+
+Example 4: Bedroom - Walls, Ceiling, Trim
+Property Type: House
+Room Count: 1 bedroom
+Work Description: Full bedroom repaint including walls, ceiling, door, door frame, skirting boards, and window frame. Standard ceiling height. Two coats on walls, one on ceiling and trim.
+Price: $1050 - $1200
+Duration: 1-2 days
+Materials Cost: ~$285
+
+
+Example 5: Kitchen - Walls and Cabinets
+Property Type: Apartment
+Room Count: Kitchen
+Work Description: Paint kitchen walls (12 linear meters) and refresh 8 cabinet doors. Includes degreasing and proper prep. Oil-based paint on cabinets.
+Price: $1,500-2,000
+Duration: 2-3 days
+Materials Cost: ~$540
+
+
+Example 6: Bathroom - Full Repaint
+Property Type: House
+Room Count: 1 bathroom
+Work Description: Full bathroom including walls, ceiling, door, window, all trim. Bathroom-specific paint with mold resistance. Extra prep for moisture areas.
+Price: $700-950
+Duration: 1-2 days
+Materials Cost: ~$255
+
+
+### CATEGORY: MULTIPLE ROOMS - APARTMENT
+
+
+Example 7: One Bedroom Apartment - Interior
+Property Type: Apartment
+Room Count: 1 bedroom
+Work Description: Full interior repaint of 1-bedroom apartment (bedroom, living room, kitchen, bathroom - walls only). Standard ceiling height. Minimal prep.
+Price: $1,200 - $2,000
+Duration: 3-4 days
+Materials Cost: ~$840
+
+
+Example 8: One Bedroom Apartment - Complete
+Property Type: Apartment
+Room Count: 1 bedroom
+Work Description: Complete repaint including all walls, ceilings, doors, door frames, skirting boards, and window frames throughout entire 1-bedroom apartment.
+Price: $2,000 - $3,000
+Duration: 4-5 days
+Materials Cost: ~$1,260
+
+
+Example 9: Two Bedroom Apartment - Interior
+Property Type: Apartment
+Room Count: 2 bedrooms
+Work Description: Full interior repaint of 2-bedroom apartment. All walls in bedrooms, living room, kitchen, dining area, bathroom. Standard ceiling height. Good condition walls.
+Price: $2,800-3,500
+Duration: 4-5 days
+Materials Cost: ~$1,140
+
+
+Example 10: Two Bedroom Apartment - Complete
+Property Type: Apartment
+Room Count: 2 bedrooms
+Work Description: Complete repaint of 2-bedroom apartment including all walls, ceilings, trim, doors, and frames. Some repair work needed on walls.
+Price: $3,000 - $4,000
+Duration: 5-6 days
+Materials Cost: ~$1,650
+
+
+### CATEGORY: SMALL HOUSE
+
+
+Example 11: Three Bedroom House - Interior Walls
+Property Type: House (Single Storey)
+Room Count: 3 bedrooms
+Work Description: Paint all interior walls only in 3-bedroom single-storey house. Living room, dining room, kitchen, 3 bedrooms, hallway. Standard ceiling height.
+Price: $3,500 - $5,700
+Duration: 5-6 days
+Materials Cost: ~$1,560
+
+
+Example 12: Three Bedroom House - Comprehensive Interior
+Property Type: House (Double Storey)
+Room Count: 3 bedrooms
+Work Description: Full interior repaint including all walls, ceilings, doors, door frames, window frames, and skirting boards. Moderate prep work required.
+Price: $5,500 - $10,000
+Duration: 7-8 days
+Materials Cost: ~$2,550
+
+
+Example 13: Three Bedroom Townhouse - Full Interior
+Property Type: Townhouse (Two Storey)
+Room Count: 3 bedrooms
+Work Description: Complete interior repaint of 2-storey townhouse. All rooms including stairwell walls. High stairwell requires scaffolding. All walls, ceilings, and trim.
+Price: $8,500-9,800
+Duration: 8-10 days
+Materials Cost: ~$2,940
+
+### CATEGORY: MEDIUM HOUSE
+
+Example 14: Four Bedroom House - Interior Walls Only
+Property Type: House (Single Storey)
+Room Count: 4 bedrooms
+Work Description: Paint all interior walls in 4-bedroom single-storey house. Living areas, kitchen, 4 bedrooms, 2 bathrooms, hallways. Standard ceiling height. Walls in good condition.
+Price: $6,800
+Duration: 6-7 days
+Materials Cost: ~$2,040
+
+
+Example 15: Four Bedroom House - Full Interior
+Property Type: House (Single Storey)
+Room Count: 4 bedrooms
+Work Description: Complete interior repaint including walls, ceilings, all trim, doors, and frames. Some wall repairs and patching required. Standard ceiling height.
+Price: $11,500
+Duration: 9-11 days
+Materials Cost: ~$3,450
+
+
+Example 16: Four Bedroom House - Interior & Exterior
+Property Type: House (Single Storey)
+Room Count: 4 bedrooms
+Work Description: Full interior repaint (walls and ceilings) plus exterior weatherboards and trim. Exterior includes pressure washing and minor repairs. Large job.
+Price: $18,500
+Duration: 14-16 days
+Materials Cost: ~$5,550
+
+
+Example 17: Four Bedroom House - Two Storey Interior
+Property Type: House (Double Storey)
+Room Count: 4 bedrooms
+Work Description: Full interior of two-storey house. All walls, ceilings, trim. High stairwell and void require scaffolding. Some ceiling repairs needed.
+Price: $13,800
+Duration: 11-13 days
+Materials Cost: ~$4,140
+
+
+
+### CATEGORY: LARGE HOUSE
+
+
+Example 18: Five Bedroom House - Interior Walls
+Property Type: House (Double Storey)
+Room Count: 5 bedrooms
+Work Description: Paint all interior walls only in large 5-bedroom double-storey house. Multiple living areas, 5 bedrooms, 3 bathrooms, study, hallways. Standard ceiling height in most rooms.
+Price: $9,200
+Duration: 8-10 days
+Materials Cost: ~$2,760
+
+
+Example 19: Five Bedroom House - Full Interior
+Property Type: House (Double Storey)
+Room Count: 5 bedrooms
+Work Description: Complete interior repaint of large double-storey house. All walls, ceilings, doors, frames, skirting, window frames. High void area requires scaffolding. Extensive prep work needed.
+Price: Premium/luxury jobs - quote on inspection
+Duration: 13-15 days
+Materials Cost: ~$4,950
+
+
+Example 20: Five Bedroom House - Premium Interior & Exterior
+Property Type: House (Double Storey)
+Room Count: 5 bedrooms
+Work Description: Complete interior and exterior repaint. Interior includes all surfaces. Exterior includes weatherboards, fascia, soffits, window frames. Premium paint used. Extensive prep and repair work.
+Price: Premium/luxury jobs - quote on inspection
+Duration: 18-22 days
+Materials Cost: ~$8,550
+
+
+### CATEGORY: EXTERIOR ONLY
+
+
+Example 21: Small House Exterior
+Property Type: House (Single Storey)
+Work Description: Exterior weatherboards and trim only. Small single-storey house. Includes pressure washing, minor wood repairs, and two coats of exterior paint.
+Price: $6,500
+Duration: 5-6 days
+Materials Cost: ~$1,950
+
+
+Example 22: Medium House Exterior
+Property Type: House (Single Storey)
+Work Description: Full exterior of medium single-storey house. Weatherboards, all trim, fascia, soffits, garage door. Pressure washing and moderate repairs. Two coats.
+Price: $9,800
+Duration: 7-9 days
+Materials Cost: ~$2,940
+
+
+Example 23: Large Two Storey Exterior
+Property Type: House (Double Storey)
+Work Description: Complete exterior of large double-storey house. Scaffolding required. Weatherboards, trim, fascia, soffits. Extensive prep work. Weather-resistant premium paint.
+Price: $10,800 - $12,500
+Duration: 11-14 days
+Materials Cost: ~$4,650
+
+
+
+### CATEGORY: SPECIALTY JOBS
+
+
+Example 24: Feature Wall - Living Room
+Property Type: House
+Work Description: Single feature wall in living room (5m x 2.8m). Premium designer color. Extensive prep for perfect finish. Two coats plus primer.
+Price: $500-650
+Duration: 1 day
+Materials Cost: ~$174
+
+
+Example 25: Deck Staining
+Property Type: House
+Work Description: Clean, prepare, and stain timber deck (30 square meters). Includes sanding, repairs to boards, and two coats of decking oil.
+Price: $2,000 - $2,800
+Duration: 2-3 days
+Materials Cost: ~$660
+
+
+Example 26: Garage Floor Epoxy
+Property Type: House
+Work Description: Double garage floor (40 square meters). Concrete preparation, repairs, epoxy coating system. Two-part epoxy with non-slip finish.
+Price: $2,800-3,500
+Duration: 2-3 days
+Materials Cost: ~$960
+
+Example 27: Fence Painting
+Property Type: House
+Work Description: Paint timber fence (35 linear meters, both sides). Includes cleaning, minor repairs, and two coats of exterior paint.
+Price: $2,500 - $3,600
+Duration: 3-4 days
+Materials Cost: ~$840
+
+Example 28: Ceiling Only - Large Open Plan
+Property Type: House
+Work Description: Paint ceiling only in large open-plan living area (60 square meters). High ceiling (3.5m). Scaffolding required. One coat plus primer.
+Price: $2,400
+Duration: 2-3 days
+Materials Cost: ~$720
+
+
+PRICING FACTORS TO CONSIDER
+When estimating a job, consider these factors that affect price:
+Increases Cost:
+* High ceilings or voids requiring scaffolding
+* Extensive prep work (repairs, sanding, patching)
+* Difficult access areas
+* Premium or specialty paints
+* Intricate trim work or multiple colors
+* Exterior work requiring scaffolding
+* Poor condition surfaces requiring extra coats
+* Two-storey properties
+Decreases Cost:
+* Walls in excellent condition (minimal prep)
+* Standard ceiling heights
+* Easy access
+* Simple color scheme
+* Customer providing paint
+* Empty/unfurnished rooms (easier to work)
+Typical Material Cost: Approximately 30% of total job price
+Typical Duration: $500-800 per day labor cost as a rough guide
