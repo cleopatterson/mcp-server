@@ -154,6 +154,33 @@ const tools = [
         "insights_or_red_flags"
       ]
     }
+  },
+  {
+    name: "get_painting_knowledge_base",
+    description: "Get the comprehensive painting job qualification guide with category definitions, sizing rules, and essential questions for each painting service type. Read this FIRST before asking job qualification questions.",
+    inputSchema: {
+      type: "object",
+      properties: {},
+      required: []
+    }
+  },
+  {
+    name: "get_pricing_reference",
+    description: "Get 28 real-world pricing examples across all painting job categories (single rooms, apartments, houses, exterior, specialty). Use this to provide intelligent price estimates.",
+    inputSchema: {
+      type: "object",
+      properties: {},
+      required: []
+    }
+  },
+  {
+    name: "get_pricing_analysis_guide",
+    description: "Get detailed guidance on how to analyze painting jobs and provide intelligent price estimates with proper reasoning. Read this before giving price estimates to customers.",
+    inputSchema: {
+      type: "object",
+      properties: {},
+      required: []
+    }
   }
 ];
 
@@ -591,6 +618,84 @@ async function createJob(args) {
   }
 }
 
+// Get Painting Knowledge Base tool
+async function getPaintingKnowledgeBase() {
+  try {
+    const knowledgeBasePath = join(__dirname, "painting_knowledge_base.txt");
+    const knowledgeBaseContent = readFileSync(knowledgeBasePath, "utf-8");
+
+    return {
+      content: [
+        {
+          type: "text",
+          text: knowledgeBaseContent
+        }
+      ]
+    };
+  } catch (err) {
+    return {
+      content: [
+        {
+          type: "text",
+          text: `Error: Failed to load painting knowledge base - ${err.message}`
+        }
+      ]
+    };
+  }
+}
+
+// Get Pricing Reference tool
+async function getPricingReference() {
+  try {
+    const pricingReferencePath = join(__dirname, "painting_pricing_reference.txt");
+    const pricingReferenceContent = readFileSync(pricingReferencePath, "utf-8");
+
+    return {
+      content: [
+        {
+          type: "text",
+          text: pricingReferenceContent
+        }
+      ]
+    };
+  } catch (err) {
+    return {
+      content: [
+        {
+          type: "text",
+          text: `Error: Failed to load pricing reference - ${err.message}`
+        }
+      ]
+    };
+  }
+}
+
+// Get Pricing Analysis Guide tool
+async function getPricingAnalysisGuide() {
+  try {
+    const pricingAnalysisPath = join(__dirname, "pricing_analysis_guide.txt");
+    const pricingAnalysisContent = readFileSync(pricingAnalysisPath, "utf-8");
+
+    return {
+      content: [
+        {
+          type: "text",
+          text: pricingAnalysisContent
+        }
+      ]
+    };
+  } catch (err) {
+    return {
+      content: [
+        {
+          type: "text",
+          text: `Error: Failed to load pricing analysis guide - ${err.message}`
+        }
+      ]
+    };
+  }
+}
+
 // MCP Protocol Endpoints with JSONRPC 2.0 support
 app.post("/mcp", async (req, res) => {
   const { method, params, id } = req.body;
@@ -712,6 +817,15 @@ app.post("/mcp", async (req, res) => {
         } else if (name === "create_job") {
           const result = await createJob(args || {});
           return res.json(respond(result));
+        } else if (name === "get_painting_knowledge_base") {
+          const result = await getPaintingKnowledgeBase();
+          return res.json(respond(result));
+        } else if (name === "get_pricing_reference") {
+          const result = await getPricingReference();
+          return res.json(respond(result));
+        } else if (name === "get_pricing_analysis_guide") {
+          const result = await getPricingAnalysisGuide();
+          return res.json(respond(result));
         } else {
           return res.json(respond(null, {
             code: -32602,
@@ -797,6 +911,45 @@ app.get("/", (req, res) => {
               insights_or_red_flags: "Customer preparing property for sale - timeline is important",
               budget: "$4500"
             }
+          }
+        }
+      },
+      get_painting_knowledge_base: {
+        method: "POST",
+        url: "/mcp",
+        body: {
+          jsonrpc: "2.0",
+          id: 3,
+          method: "tools/call",
+          params: {
+            name: "get_painting_knowledge_base",
+            arguments: {}
+          }
+        }
+      },
+      get_pricing_reference: {
+        method: "POST",
+        url: "/mcp",
+        body: {
+          jsonrpc: "2.0",
+          id: 4,
+          method: "tools/call",
+          params: {
+            name: "get_pricing_reference",
+            arguments: {}
+          }
+        }
+      },
+      get_pricing_analysis_guide: {
+        method: "POST",
+        url: "/mcp",
+        body: {
+          jsonrpc: "2.0",
+          id: 5,
+          method: "tools/call",
+          params: {
+            name: "get_pricing_analysis_guide",
+            arguments: {}
           }
         }
       }
