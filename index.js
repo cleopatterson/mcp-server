@@ -47,18 +47,18 @@ const REGION_MAPPING = {
 const tools = [
   {
     name: "get_top_painters",
-    description: "Get the top 3 painters for a specific postcode and service type. For Voiceflow: postcode comes from context variable. For ChatGPT: gather postcode from user first.",
+    description: "Find the top 3 painters for a specific postcode and painting service type",
     inputSchema: {
       type: "object",
       properties: {
         postcode: {
           type: "string",
-          description: "4-digit Australian postcode",
+          description: "4-digit Australian postcode where painting services are needed",
           pattern: "^[0-9]{4}$"
         },
         service: {
           type: "string",
-          description: "Exact painting service type from the valid list",
+          description: "Type of painting service required",
           enum: VALID_SERVICES
         },
         hubspot_token: {
