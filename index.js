@@ -26,19 +26,27 @@ app.use(express.json());
 const HUBSPOT_TOKEN = process.env.HUBSPOT_TOKEN || "";
 const POSTCODE_URL = "https://raw.githubusercontent.com/cleopatterson/service_seeking/main/postcode_to_region_area.json";
 
-// Valid service types for painting
-const VALID_SERVICES = [
-  "Exterior House Painting",
-  "Interior House Painting", 
-  "Roof Painting",
-  "Wallpapering",
-  "Commercial Painting",
-  "Fence Painting",
-  "Paint Removal",
-  "House Painting",
-  "Floor Painting",
-  "Concrete Painting"
-];
+// Category-specific service types
+const CATEGORY_SERVICES = {
+  painting: [
+    "Exterior House Painting",
+    "Interior House Painting",
+    "Roof Painting",
+    "Wallpapering",
+    "Commercial Painting",
+    "Fence Painting",
+    "Paint Removal",
+    "House Painting",
+    "Floor Painting",
+    "Concrete Painting"
+  ]
+  // Future categories can be added here:
+  // plumbing: ["Blocked Drain", "Leak Repair", "Tap Installation", ...],
+  // electrical: ["Light Installation", "Switchboard Upgrade", ...],
+};
+
+// Legacy constant for backward compatibility
+const VALID_SERVICES = CATEGORY_SERVICES.painting;
 
 // Region mapping for expanded search
 const REGION_MAPPING = {
@@ -156,29 +164,32 @@ const tools = [
     }
   },
   {
-    name: "get_painting_knowledge_base",
-    description: "Get the comprehensive painting job qualification guide with category definitions, sizing rules, and essential questions for each painting service type. Read this FIRST before asking job qualification questions.",
+    name: "get_knowledge_base",
+    description: "Get the comprehensive scoping and qualification guide for a specific service category (e.g., painting, plumbing, electrical). Contains category definitions, sizing rules, and essential questions. Use this to understand how to qualify jobs in that category.",
     inputSchema: {
       type: "object",
-      properties: {},
+      properties: {
+        category: {
+          type: "string",
+          description: "Service category (e.g., 'painting', 'plumbing', 'electrical')",
+          default: "painting"
+        }
+      },
       required: []
     }
   },
   {
-    name: "get_pricing_reference",
-    description: "Get 28 real-world pricing examples across all painting job categories (single rooms, apartments, houses, exterior, specialty). Use this to provide intelligent price estimates.",
+    name: "get_pricing_guide",
+    description: "Get comprehensive pricing information for a specific service category, including real-world examples and detailed guidance on how to analyze jobs and provide intelligent estimates with reasoning. Use this whenever customers ask about pricing.",
     inputSchema: {
       type: "object",
-      properties: {},
-      required: []
-    }
-  },
-  {
-    name: "get_pricing_analysis_guide",
-    description: "Get detailed guidance on how to analyze painting jobs and provide intelligent price estimates with proper reasoning. Read this before giving price estimates to customers.",
-    inputSchema: {
-      type: "object",
-      properties: {},
+      properties: {
+        category: {
+          type: "string",
+          description: "Service category (e.g., 'painting', 'plumbing', 'electrical')",
+          default: "painting"
+        }
+      },
       required: []
     }
   }
@@ -618,10 +629,12 @@ async function createJob(args) {
   }
 }
 
-// Get Painting Knowledge Base tool
-async function getPaintingKnowledgeBase() {
+// Get Knowledge Base tool - returns scoping guide for a category
+async function getKnowledgeBase(args = {}) {
+  const category = args.category || "painting";
+
   try {
-    const knowledgeBasePath = join(__dirname, "painting_knowledge_base.txt");
+    const knowledgeBasePath = join(__dirname, "resources", category, "knowledge_base.txt");
     const knowledgeBaseContent = readFileSync(knowledgeBasePath, "utf-8");
 
     return {
@@ -637,50 +650,35 @@ async function getPaintingKnowledgeBase() {
       content: [
         {
           type: "text",
-          text: `Error: Failed to load painting knowledge base - ${err.message}`
+          text: `Error: Failed to load knowledge base for category '${category}' - ${err.message}\n\nMake sure resources/${category}/knowledge_base.txt exists.`
         }
       ]
     };
   }
 }
 
-// Get Pricing Reference tool
-async function getPricingReference() {
+// Get Pricing Guide tool - combines reference examples and analysis guidance for a category
+async function getPricingGuide(args = {}) {
+  const category = args.category || "painting";
+
   try {
-    const pricingReferencePath = join(__dirname, "painting_pricing_reference.txt");
+    const pricingReferencePath = join(__dirname, "resources", category, "pricing_reference.txt");
+    const pricingAnalysisPath = join(__dirname, "resources", category, "pricing_analysis_guide.txt");
+
     const pricingReferenceContent = readFileSync(pricingReferencePath, "utf-8");
-
-    return {
-      content: [
-        {
-          type: "text",
-          text: pricingReferenceContent
-        }
-      ]
-    };
-  } catch (err) {
-    return {
-      content: [
-        {
-          type: "text",
-          text: `Error: Failed to load pricing reference - ${err.message}`
-        }
-      ]
-    };
-  }
-}
-
-// Get Pricing Analysis Guide tool
-async function getPricingAnalysisGuide() {
-  try {
-    const pricingAnalysisPath = join(__dirname, "pricing_analysis_guide.txt");
     const pricingAnalysisContent = readFileSync(pricingAnalysisPath, "utf-8");
 
+    const combinedContent = `${pricingAnalysisContent}
+
+---
+
+${pricingReferenceContent}`;
+
     return {
       content: [
         {
           type: "text",
-          text: pricingAnalysisContent
+          text: combinedContent
         }
       ]
     };
@@ -689,7 +687,7 @@ async function getPricingAnalysisGuide() {
       content: [
         {
           type: "text",
-          text: `Error: Failed to load pricing analysis guide - ${err.message}`
+          text: `Error: Failed to load pricing guide for category '${category}' - ${err.message}\n\nMake sure resources/${category}/pricing_reference.txt and pricing_analysis_guide.txt exist.`
         }
       ]
     };
@@ -746,7 +744,7 @@ app.post("/mcp", async (req, res) => {
           }));
         } else if (uri === "painterjobs://painting-knowledge-base") {
           try {
-            const knowledgeBasePath = join(__dirname, "painting_knowledge_base.txt");
+            const knowledgeBasePath = join(__dirname, "resources", "painting", "knowledge_base.txt");
             const knowledgeBaseContent = readFileSync(knowledgeBasePath, "utf-8");
             return res.json(respond({
               contents: [
@@ -765,7 +763,7 @@ app.post("/mcp", async (req, res) => {
           }
         } else if (uri === "painterjobs://pricing-reference") {
           try {
-            const pricingReferencePath = join(__dirname, "painting_pricing_reference.txt");
+            const pricingReferencePath = join(__dirname, "resources", "painting", "pricing_reference.txt");
             const pricingReferenceContent = readFileSync(pricingReferencePath, "utf-8");
             return res.json(respond({
               contents: [
@@ -784,7 +782,7 @@ app.post("/mcp", async (req, res) => {
           }
         } else if (uri === "painterjobs://pricing-analysis-guide") {
           try {
-            const pricingAnalysisPath = join(__dirname, "pricing_analysis_guide.txt");
+            const pricingAnalysisPath = join(__dirname, "resources", "painting", "pricing_analysis_guide.txt");
             const pricingAnalysisContent = readFileSync(pricingAnalysisPath, "utf-8");
             return res.json(respond({
               contents: [
@@ -817,14 +815,11 @@ app.post("/mcp", async (req, res) => {
         } else if (name === "create_job") {
           const result = await createJob(args || {});
           return res.json(respond(result));
-        } else if (name === "get_painting_knowledge_base") {
-          const result = await getPaintingKnowledgeBase();
+        } else if (name === "get_knowledge_base") {
+          const result = await getKnowledgeBase(args || {});
           return res.json(respond(result));
-        } else if (name === "get_pricing_reference") {
-          const result = await getPricingReference();
-          return res.json(respond(result));
-        } else if (name === "get_pricing_analysis_guide") {
-          const result = await getPricingAnalysisGuide();
+        } else if (name === "get_pricing_guide") {
+          const result = await getPricingGuide(args || {});
           return res.json(respond(result));
         } else {
           return res.json(respond(null, {
@@ -914,7 +909,7 @@ app.get("/", (req, res) => {
           }
         }
       },
-      get_painting_knowledge_base: {
+      get_knowledge_base: {
         method: "POST",
         url: "/mcp",
         body: {
@@ -922,12 +917,14 @@ app.get("/", (req, res) => {
           id: 3,
           method: "tools/call",
           params: {
-            name: "get_painting_knowledge_base",
-            arguments: {}
+            name: "get_knowledge_base",
+            arguments: {
+              category: "painting"
+            }
           }
         }
       },
-      get_pricing_reference: {
+      get_pricing_guide: {
         method: "POST",
         url: "/mcp",
         body: {
@@ -935,21 +932,10 @@ app.get("/", (req, res) => {
           id: 4,
           method: "tools/call",
           params: {
-            name: "get_pricing_reference",
-            arguments: {}
-          }
-        }
-      },
-      get_pricing_analysis_guide: {
-        method: "POST",
-        url: "/mcp",
-        body: {
-          jsonrpc: "2.0",
-          id: 5,
-          method: "tools/call",
-          params: {
-            name: "get_pricing_analysis_guide",
-            arguments: {}
+            name: "get_pricing_guide",
+            arguments: {
+              category: "painting"
+            }
           }
         }
       }
