@@ -18,6 +18,10 @@ dotenv.config();
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+// Load all category services from generated file
+const categoryServicesPath = join(__dirname, "category_services.json");
+const CATEGORY_SERVICES = JSON.parse(readFileSync(categoryServicesPath, "utf-8"));
+
 const app = express();
 app.use(cors());
 app.use(express.json());
@@ -26,27 +30,8 @@ app.use(express.json());
 const HUBSPOT_TOKEN = process.env.HUBSPOT_TOKEN || "";
 const POSTCODE_URL = "https://raw.githubusercontent.com/cleopatterson/service_seeking/main/postcode_to_region_area.json";
 
-// Category-specific service types
-const CATEGORY_SERVICES = {
-  painting: [
-    "Exterior House Painting",
-    "Interior House Painting",
-    "Roof Painting",
-    "Wallpapering",
-    "Commercial Painting",
-    "Fence Painting",
-    "Paint Removal",
-    "House Painting",
-    "Floor Painting",
-    "Concrete Painting"
-  ]
-  // Future categories can be added here:
-  // plumbing: ["Blocked Drain", "Leak Repair", "Tap Installation", ...],
-  // electrical: ["Light Installation", "Switchboard Upgrade", ...],
-};
-
-// Legacy constant for backward compatibility
-const VALID_SERVICES = CATEGORY_SERVICES.painting;
+// Legacy constant for backward compatibility (painting services)
+const VALID_SERVICES = CATEGORY_SERVICES.painter || [];
 
 // Region mapping for expanded search
 const REGION_MAPPING = {
