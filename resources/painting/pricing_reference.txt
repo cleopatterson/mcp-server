@@ -68,40 +68,39 @@ Example 7: One Bedroom Apartment - Interior
 Property Type: Apartment
 Room Count: 1 bedroom
 Work Description: Full interior repaint of 1-bedroom apartment (bedroom, living room, kitchen, bathroom - walls only). Standard ceiling height. Minimal prep.
-Price: $1,200 - $2,000
+Price: $1,500 - $2,200
 Duration: 3-4 days
-Materials Cost: ~$840
+Materials Cost: ~$600
 
 
 Example 8: One Bedroom Apartment - Complete
 Property Type: Apartment
 Room Count: 1 bedroom
 Work Description: Complete repaint including all walls, ceilings, doors, door frames, skirting boards, and window frames throughout entire 1-bedroom apartment.
-Price: $2,000 - $3,000
+Price: $2,200 - $3,200
 Duration: 4-5 days
-Materials Cost: ~$1,260
+Materials Cost: ~$900
 
 
 Example 9: Two Bedroom Apartment - Interior
 Property Type: Apartment
 Room Count: 2 bedrooms
 Work Description: Full interior repaint of 2-bedroom apartment. All walls in bedrooms, living room, kitchen, dining area, bathroom. Standard ceiling height. Good condition walls.
-Price: $2,800-3,500
+Price: $2,200 - $3,200
 Duration: 4-5 days
-Materials Cost: ~$1,140
-
+Materials Cost: ~$900
 
 Example 10: Two Bedroom Apartment - Complete
 Property Type: Apartment
 Room Count: 2 bedrooms
 Work Description: Complete repaint of 2-bedroom apartment including all walls, ceilings, trim, doors, and frames. Some repair work needed on walls.
-Price: $3,000 - $4,000
+Price: $3,200 - $4,500
 Duration: 5-6 days
-Materials Cost: ~$1,650
+Materials Cost: ~$1,300
+
 
 
 ### CATEGORY: SMALL HOUSE
-
 
 Example 11: Three Bedroom House - Interior Walls
 Property Type: House (Single Storey)
@@ -121,39 +120,30 @@ Duration: 7-8 days
 Materials Cost: ~$2,550
 
 
-Example 13: Three Bedroom Townhouse - Full Interior
-Property Type: Townhouse (Two Storey)
-Room Count: 3 bedrooms
-Work Description: Complete interior repaint of 2-storey townhouse. All rooms including stairwell walls. High stairwell requires scaffolding. All walls, ceilings, and trim.
-Price: $8,500-9,800
-Duration: 8-10 days
-Materials Cost: ~$2,940
-
 ### CATEGORY: MEDIUM HOUSE
 
 Example 14: Four Bedroom House - Interior Walls Only
 Property Type: House (Single Storey)
 Room Count: 4 bedrooms
 Work Description: Paint all interior walls in 4-bedroom single-storey house. Living areas, kitchen, 4 bedrooms, 2 bathrooms, hallways. Standard ceiling height. Walls in good condition.
-Price: $6,800
+Price: $5,500 - $7,500
 Duration: 6-7 days
-Materials Cost: ~$2,040
+Materials Cost: ~$1,900
 
 
 Example 15: Four Bedroom House - Full Interior
 Property Type: House (Single Storey)
 Room Count: 4 bedrooms
 Work Description: Complete interior repaint including walls, ceilings, all trim, doors, and frames. Some wall repairs and patching required. Standard ceiling height.
-Price: $11,500
+Price: $9,500 - $13,000
 Duration: 9-11 days
-Materials Cost: ~$3,450
-
+Materials Cost: ~$3,300
 
 Example 16: Four Bedroom House - Interior & Exterior
 Property Type: House (Single Storey)
 Room Count: 4 bedrooms
 Work Description: Full interior repaint (walls and ceilings) plus exterior weatherboards and trim. Exterior includes pressure washing and minor repairs. Large job.
-Price: $18,500
+Price: Premium/luxury jobs - quote on inspection
 Duration: 14-16 days
 Materials Cost: ~$5,550
 
@@ -162,7 +152,7 @@ Example 17: Four Bedroom House - Two Storey Interior
 Property Type: House (Double Storey)
 Room Count: 4 bedrooms
 Work Description: Full interior of two-storey house. All walls, ceilings, trim. High stairwell and void require scaffolding. Some ceiling repairs needed.
-Price: $13,800
+Price: Premium/luxury jobs - quote on inspection
 Duration: 11-13 days
 Materials Cost: ~$4,140
 
@@ -175,7 +165,7 @@ Example 18: Five Bedroom House - Interior Walls
 Property Type: House (Double Storey)
 Room Count: 5 bedrooms
 Work Description: Paint all interior walls only in large 5-bedroom double-storey house. Multiple living areas, 5 bedrooms, 3 bathrooms, study, hallways. Standard ceiling height in most rooms.
-Price: $9,200
+Price: Premium/luxury jobs - quote on inspection
 Duration: 8-10 days
 Materials Cost: ~$2,760
 
