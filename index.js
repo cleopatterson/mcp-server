@@ -881,10 +881,24 @@ app.post("/mcp", authenticateMCP, async (req, res) => {
 
         if (name === "get_top_painters") {
           const result = await getTopPainters(args || {});
-          return res.json(respond(result));
+          // Add structured data at JSONRPC level for Voiceflow access
+          const response = {
+            jsonrpc: "2.0",
+            id,
+            result,
+            // Expose data fields at top level for direct access
+            ...(result.data && { data: result.data })
+          };
+          return res.json(response);
         } else if (name === "create_job") {
           const result = await createJob(args || {});
-          return res.json(respond(result));
+          const response = {
+            jsonrpc: "2.0",
+            id,
+            result,
+            ...(result.data && { data: result.data })
+          };
+          return res.json(response);
         } else if (name === "get_knowledge_base") {
           const result = await getKnowledgeBase(args || {});
           return res.json(respond(result));
