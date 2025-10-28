@@ -217,22 +217,26 @@ async function getTopPainters(args) {
 
   // Validation
   if (!postcode || !service || !hubspot_token) {
+    const errorData = {
+      region: null,
+      area: null,
+      total_painters: "0",
+      top_painters_json: "[]",
+      top_painter_1_details: "",
+      top_painter_2_details: "",
+      top_painter_3_details: "",
+      top_painters: [],
+      error: "Missing required parameters"
+    };
+
     return {
       content: [
         {
           type: "text",
-          text: JSON.stringify({
-            region: null,
-            area: null,
-            total_painters: "0",
-            top_painters_json: "[]",
-            top_painter_1_details: "",
-            top_painter_2_details: "",
-            top_painter_3_details: "",
-            error: "Missing required parameters"
-          }, null, 2)
+          text: JSON.stringify(errorData, null, 2)
         }
-      ]
+      ],
+      data: errorData
     };
   }
 
@@ -248,43 +252,52 @@ async function getTopPainters(args) {
 
     const match = postcodeMap[postcode];
     if (!match) {
+      const errorData = {
+        region: null,
+        area: null,
+        total_painters: "0",
+        top_painters_json: "[]",
+        top_painter_1_details: "",
+        top_painter_2_details: "",
+        top_painter_3_details: "",
+        top_painters: [],
+        error: "Invalid postcode"
+      };
+
       return {
         content: [
           {
             type: "text",
-            text: JSON.stringify({
-              region: null,
-              area: null,
-              total_painters: "0",
-              top_painters_json: "[]",
-              top_painter_1_details: "",
-              top_painter_2_details: "",
-              top_painter_3_details: ""
-            }, null, 2)
+            text: JSON.stringify(errorData, null, 2)
           }
-        ]
+        ],
+        data: errorData
       };
     }
 
     region = match.region;
     area = match.area;
   } catch (err) {
+    const errorData = {
+      region: null,
+      area: null,
+      total_painters: "0",
+      top_painters_json: "[]",
+      top_painter_1_details: "",
+      top_painter_2_details: "",
+      top_painter_3_details: "",
+      top_painters: [],
+      error: err.message
+    };
+
     return {
       content: [
         {
           type: "text",
-          text: JSON.stringify({
-            region: null,
-            area: null,
-            total_painters: "0",
-            top_painters_json: "[]",
-            top_painter_1_details: "",
-            top_painter_2_details: "",
-            top_painter_3_details: "",
-            error: err.message
-          }, null, 2)
+          text: JSON.stringify(errorData, null, 2)
         }
-      ]
+      ],
+      data: errorData
     };
   }
 
@@ -351,22 +364,26 @@ async function getTopPainters(args) {
   try {
     companies = await hsSearchPaginated();
   } catch (err) {
+    const errorData = {
+      region,
+      area,
+      total_painters: "0",
+      top_painters_json: "[]",
+      top_painter_1_details: "",
+      top_painter_2_details: "",
+      top_painter_3_details: "",
+      top_painters: [],
+      error: `HubSpot error: ${err.message}`
+    };
+
     return {
       content: [
         {
           type: "text",
-          text: JSON.stringify({
-            region,
-            area,
-            total_painters: "0",
-            top_painters_json: "[]",
-            top_painter_1_details: "",
-            top_painter_2_details: "",
-            top_painter_3_details: "",
-            error: `HubSpot error: ${err.message}`
-          }, null, 2)
+          text: JSON.stringify(errorData, null, 2)
         }
-      ]
+      ],
+      data: errorData
     };
   }
 
@@ -438,22 +455,27 @@ async function getTopPainters(args) {
   const d2 = top3[1] ? detailString(top3[1]) : "";
   const d3 = top3[2] ? detailString(top3[2]) : "";
 
-  // Return outputs exactly as Voiceflow expects
+  // Return outputs - both text for AI and structured data for Voiceflow
+  const responseData = {
+    region,
+    area,
+    total_painters: String(total_painters),
+    top_painters_json: JSON.stringify(top3),
+    top_painter_1_details: d1,
+    top_painter_2_details: d2,
+    top_painter_3_details: d3,
+    top_painters: top3  // Include parsed array for direct access
+  };
+
   return {
     content: [
       {
         type: "text",
-        text: JSON.stringify({
-          region,
-          area,
-          total_painters: String(total_painters),
-          top_painters_json: JSON.stringify(top3),
-          top_painter_1_details: d1,
-          top_painter_2_details: d2,
-          top_painter_3_details: d3
-        }, null, 2)
+        text: JSON.stringify(responseData, null, 2)
       }
-    ]
+    ],
+    // Add structured data for direct field access (Voiceflow)
+    data: responseData
   };
 }
 
@@ -462,16 +484,19 @@ async function createJob(args) {
   const hubspot_token = args.hubspot_token || HUBSPOT_TOKEN;
 
   if (!hubspot_token) {
+    const errorData = {
+      success: false,
+      error: "Missing HubSpot API token"
+    };
+
     return {
       content: [
         {
           type: "text",
-          text: JSON.stringify({
-            success: false,
-            error: "Missing HubSpot API token"
-          }, null, 2)
+          text: JSON.stringify(errorData, null, 2)
         }
-      ]
+      ],
+      data: errorData
     };
   }
 
@@ -487,32 +512,38 @@ async function createJob(args) {
 
     const match = postcodeMap[args.postcode];
     if (!match) {
+      const errorData = {
+        success: false,
+        error: `Invalid postcode: ${args.postcode}`
+      };
+
       return {
         content: [
           {
             type: "text",
-            text: JSON.stringify({
-              success: false,
-              error: `Invalid postcode: ${args.postcode}`
-            }, null, 2)
+            text: JSON.stringify(errorData, null, 2)
           }
-        ]
+        ],
+        data: errorData
       };
     }
 
     region = match.region;
     area = match.area;
   } catch (err) {
+    const errorData = {
+      success: false,
+      error: `Postcode lookup failed: ${err.message}`
+    };
+
     return {
       content: [
         {
           type: "text",
-          text: JSON.stringify({
-            success: false,
-            error: `Postcode lookup failed: ${err.message}`
-          }, null, 2)
+          text: JSON.stringify(errorData, null, 2)
         }
-      ]
+      ],
+      data: errorData
     };
   }
 
@@ -583,34 +614,40 @@ async function createJob(args) {
 
     const dealData = await response.json();
 
+    const responseData = {
+      success: true,
+      deal_id: dealData.id,
+      dealname: dealname,
+      region: region,
+      area: area,
+      job_size: args.job_size,
+      job_size_weight: job_size_weight,
+      message: "Job created successfully in HubSpot"
+    };
+
     return {
       content: [
         {
           type: "text",
-          text: JSON.stringify({
-            success: true,
-            deal_id: dealData.id,
-            dealname: dealname,
-            region: region,
-            area: area,
-            job_size: args.job_size,
-            job_size_weight: job_size_weight,
-            message: "Job created successfully in HubSpot"
-          }, null, 2)
+          text: JSON.stringify(responseData, null, 2)
         }
-      ]
+      ],
+      data: responseData
     };
   } catch (err) {
+    const errorData = {
+      success: false,
+      error: `Failed to create deal: ${err.message}`
+    };
+
     return {
       content: [
         {
           type: "text",
-          text: JSON.stringify({
-            success: false,
-            error: `Failed to create deal: ${err.message}`
-          }, null, 2)
+          text: JSON.stringify(errorData, null, 2)
         }
-      ]
+      ],
+      data: errorData
     };
   }
 }
