@@ -28,6 +28,7 @@ app.use(express.json());
 
 // Configuration
 const HUBSPOT_TOKEN = process.env.HUBSPOT_TOKEN || "";
+const MCP_API_KEY = process.env.MCP_API_KEY || "";
 const POSTCODE_URL = "https://raw.githubusercontent.com/cleopatterson/service_seeking/main/postcode_to_region_area.json";
 
 // Legacy constant for backward compatibility (painting services)
@@ -679,8 +680,55 @@ ${pricingReferenceContent}`;
   }
 }
 
+// Authentication middleware for MCP endpoint
+function authenticateMCP(req, res, next) {
+  // Allow health check and root endpoint to be public
+  if (req.path === "/health" || req.path === "/") {
+    return next();
+  }
+
+  // Check for API key in Authorization header or X-API-Key header
+  const authHeader = req.headers.authorization;
+  const apiKeyHeader = req.headers['x-api-key'];
+
+  let providedKey = null;
+
+  if (authHeader && authHeader.startsWith('Bearer ')) {
+    providedKey = authHeader.substring(7); // Remove 'Bearer ' prefix
+  } else if (apiKeyHeader) {
+    providedKey = apiKeyHeader;
+  }
+
+  if (!MCP_API_KEY) {
+    console.error("[AUTH] MCP_API_KEY not configured in environment");
+    return res.status(500).json({
+      jsonrpc: "2.0",
+      id: req.body?.id || null,
+      error: {
+        code: -32000,
+        message: "Server authentication not configured"
+      }
+    });
+  }
+
+  if (!providedKey || providedKey !== MCP_API_KEY) {
+    console.warn("[AUTH] Unauthorized MCP access attempt");
+    return res.status(401).json({
+      jsonrpc: "2.0",
+      id: req.body?.id || null,
+      error: {
+        code: -32000,
+        message: "Unauthorized - Invalid or missing API key"
+      }
+    });
+  }
+
+  // Authentication successful
+  next();
+}
+
 // MCP Protocol Endpoints with JSONRPC 2.0 support
-app.post("/mcp", async (req, res) => {
+app.post("/mcp", authenticateMCP, async (req, res) => {
   const { method, params, id } = req.body;
 
   console.log(`[MCP] ${method}`);
@@ -830,12 +878,14 @@ app.post("/mcp", async (req, res) => {
 
 // Health check endpoint
 app.get("/health", (req, res) => {
-  res.json({ 
+  res.json({
     status: "ok",
     server: "painterjobs-mcp",
     version: "1.0.0",
     timestamp: new Date().toISOString(),
-    hubspot_configured: !!HUBSPOT_TOKEN
+    hubspot_configured: !!HUBSPOT_TOKEN,
+    authentication_required: true,
+    api_key_configured: !!MCP_API_KEY
   });
 });
 
@@ -844,13 +894,19 @@ app.get("/", (req, res) => {
   res.json({
     message: "🎨 Painting Concierge MCP Server",
     version: "1.0.0",
+    authentication: {
+      required: true,
+      method: "Bearer token or X-API-Key header",
+      example_header_1: "Authorization: Bearer YOUR_API_KEY",
+      example_header_2: "X-API-Key: YOUR_API_KEY"
+    },
     tools: tools.map(t => ({ name: t.name, description: t.description })),
     resources: resources.map(r => ({ uri: r.uri, name: r.name })),
     valid_services: VALID_SERVICES,
     endpoints: {
       "GET /": "This documentation",
-      "GET /health": "Health check",
-      "POST /mcp": "MCP protocol endpoint"
+      "GET /health": "Health check (public)",
+      "POST /mcp": "MCP protocol endpoint (requires authentication)"
     },
     examples: {
       get_top_painters: {
