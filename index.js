@@ -178,6 +178,25 @@ const tools = [
       },
       required: []
     }
+  },
+  {
+    name: "get_user",
+    description: "Search for a user/contact in HubSpot by email address. Returns the contact ID if found, or an error message if not found.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        email: {
+          type: "string",
+          description: "Email address of the user to search for",
+          format: "email"
+        },
+        hubspot_token: {
+          type: "string",
+          description: "HubSpot API token (optional - uses HUBSPOT_TOKEN env var if not provided)"
+        }
+      },
+      required: ["email"]
+    }
   }
 ];
 
@@ -717,6 +736,125 @@ ${pricingReferenceContent}`;
   }
 }
 
+// Get User tool - searches HubSpot for a contact by email address
+async function getUser(args) {
+  const email = args.email;
+  const hubspot_token = args.hubspot_token || HUBSPOT_TOKEN;
+
+  // Validation
+  if (!email || !hubspot_token) {
+    const errorData = {
+      success: false,
+      user_found: false,
+      error: "Missing required parameters (email or hubspot_token)"
+    };
+
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(errorData, null, 2)
+        }
+      ],
+      data: errorData
+    };
+  }
+
+  // Search HubSpot for contact by email
+  try {
+    const searchBody = {
+      filterGroups: [
+        {
+          filters: [
+            {
+              propertyName: "email",
+              operator: "EQ",
+              value: email
+            }
+          ]
+        }
+      ],
+      properties: ["hs_object_id", "email", "firstname", "lastname"],
+      limit: 1
+    };
+
+    const response = await fetch("https://api.hubapi.com/crm/v3/objects/contacts/search", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${hubspot_token}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(searchBody)
+    });
+
+    if (!response.ok) {
+      throw new Error(`HubSpot search failed: ${response.status}`);
+    }
+
+    const data = await response.json();
+
+    // Check if contact was found
+    if (data.results && data.results.length > 0) {
+      const contact = data.results[0];
+      const contactId = contact.id || contact.properties?.hs_object_id;
+
+      const responseData = {
+        success: true,
+        user_found: true,
+        contact_id: contactId,
+        email: contact.properties?.email || email,
+        firstname: contact.properties?.firstname || null,
+        lastname: contact.properties?.lastname || null
+      };
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(responseData, null, 2)
+          }
+        ],
+        data: responseData
+      };
+    } else {
+      // No user found
+      const responseData = {
+        success: true,
+        user_found: false,
+        message: "No user exists with this email address",
+        email: email
+      };
+
+      return {
+        content: [
+          {
+            type: "text",
+            text: JSON.stringify(responseData, null, 2)
+          }
+        ],
+        data: responseData
+      };
+    }
+  } catch (err) {
+    const errorData = {
+      success: false,
+      user_found: false,
+      error: `HubSpot error: ${err.message}`,
+      email: email
+    };
+
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(errorData, null, 2)
+        }
+      ],
+      data: errorData
+    };
+  }
+}
+
 // Authentication middleware for MCP endpoint
 function authenticateMCP(req, res, next) {
   // Allow health check and root endpoint to be public
@@ -905,6 +1043,15 @@ app.post("/mcp", authenticateMCP, async (req, res) => {
         } else if (name === "get_pricing_guide") {
           const result = await getPricingGuide(args || {});
           return res.json(respond(result));
+        } else if (name === "get_user") {
+          const result = await getUser(args || {});
+          const response = {
+            jsonrpc: "2.0",
+            id,
+            result,
+            ...(result.data && { data: result.data })
+          };
+          return res.json(response);
         } else {
           return res.json(respond(null, {
             code: -32602,
