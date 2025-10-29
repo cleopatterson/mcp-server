@@ -793,6 +793,8 @@ async function getUser(args) {
 
     const data = await response.json();
 
+    console.log(`[get_user] Search results for ${email}:`, JSON.stringify(data, null, 2));
+
     // Check if contact was found
     if (data.results && data.results.length > 0) {
       const contact = data.results[0];
@@ -1045,13 +1047,7 @@ app.post("/mcp", authenticateMCP, async (req, res) => {
           return res.json(respond(result));
         } else if (name === "get_user") {
           const result = await getUser(args || {});
-          const response = {
-            jsonrpc: "2.0",
-            id,
-            result,
-            ...(result.data && { data: result.data })
-          };
-          return res.json(response);
+          return res.json(respond(result));
         } else {
           return res.json(respond(null, {
             code: -32602,
