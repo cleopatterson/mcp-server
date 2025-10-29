@@ -1,90 +1,82 @@
 # PAINTING CATEGORY KNOWLEDGE BASE
 
+## Subcategories/Subtypes
 
-## Category Overview
-Category Type: Painting
-Primary Focus: Residential and commercial painting services including interior, exterior, roofs, and specialty surfaces
-
-
-## Subcategory Definitions
-
-### 1. Interior House Painting
-**Definition:** Rooms/areas inside a home (bedroom, bathroom, doors, hallways, kitchen, garage, granny flat, etc.)
+### Interior House Painting
+**Definition:** Rooms/areas inside a home (bedroom, bathroom, doors, hallways, kitchen, garage interior, granny flat, etc.)
 
 **Size Determination:**
-- For specific rooms:
-  - Small: 1 room only
-  - Medium: 2-4 rooms total
-  - Large: 5+ rooms total
-- For whole property:
-  - Small: Studio
-  - Medium: 1-3 bed apartment/townhouse
-  - Large: 3+ bed house
+- Specific rooms: Small (1 room), Medium (2-4 rooms), Large (5+ rooms)
+- Whole property: Small (Studio), Medium (1-3 bed apt/townhouse), Large (3+ bed house)
 
-**Essential Questions:**
-1. If customer says "full/complete/entire/whole interior" → Ask: "What type of property and how many bedrooms?"
-2. If customer lists rooms BUT unclear if that's everything → Ask: "Is this the whole property or just these specific rooms?"
-3. If confirmed whole property → Ask: "What type of property is it - house, apartment, or townhouse?"
-4. If property is a house → Ask: "Is it single or double storey?"
-5. Then ask about surfaces: "Does this include ceilings, trims, and doors as well as walls?"
+**Key Information Needed:**
+- Whole property or specific rooms?
+- Include ceilings, trims, doors or just walls?
+- Property type and bedrooms (if whole property)
+- Single or double storey (if house)
 
-**Example Classifications:**
-- "Living room and two bedrooms" = 3 rooms = Medium
-- "Kitchen and bathroom" = 2 rooms = Medium
-- "Master bedroom" = 1 room = Small
-- "Full interior of 2-bed apartment" = Medium
+**Examples:**
+- "Paint my bedroom" → Small, ask about ceiling/trims
+- "Living room and 2 bedrooms" → Medium (3 rooms)
+- "Full interior of house" → Ask bedrooms and storeys
+- "Whole apartment" → Ask bedrooms, then surfaces
 
-
-### 2. Exterior House Painting
-**Definition:** Outside surfaces including external walls, cladding, weatherboards, eaves, trims, gutters, or external structures (garage/shed exterior)
-
+### Exterior House Painting
+**Definition:** Outside surfaces including walls, cladding, weatherboards, eaves, trims, gutters, garage/shed exteriors
 
 **Size Determination:**
-- Small: Partial exterior (single wall, just trims, gutters only)
-- Medium: Full repaint of single-storey home OR compact two-storey
-- Large: Full standard two-storey or larger
+- Small: Partial exterior (single wall, doors, gutters only)
+- Medium: Full single-storey or compact two-storey
+- Large: Standard two-storey or larger
 
+**Key Information Needed:**
+- Full exterior or specific areas?
+- Material type (especially for doors, special surfaces)
+- Number of storeys (if full exterior)
 
-**Essential Questions:**
-1. "Is this the full exterior or specific areas?"
-2. If full exterior: "How many storeys?"
+**Examples:**
+- "Paint garage doors" → Small, ask material
+- "Front of house only" → Small
+- "Full exterior" → Ask storeys
+- "Weatherboards need painting" → Ask if all sides
 
-**Example Classifications:**
-- "Front of house only" = Small
-- "Full exterior single storey" = Medium
-- "Complete two-storey exterior" = Large
-
-### 3. House Painting
-**Definition:** BOTH interior AND exterior painting of the same residential property. Single-surface jobs should be classified separately.
+### House Painting
+**Definition:** BOTH interior AND exterior painting of the same property
 
 **Size Determination:**
 - Small: 1-2 interior rooms + minor exterior touch-ups
-- Medium: Partial interior + full exterior (or vice versa), OR full repaint of 2-3 bed home
-- Large: Full interior + exterior repaint of 4+ bed home
+- Medium: Partial interior + full exterior (or vice versa), OR full 2-3 bed home
+- Large: Full interior + exterior of 4+ bed home
 
-**Essential Questions:**
-1. "Does this include both interior and exterior?"
-2. If yes: "What's included inside and outside?"
-3. "How many bedrooms?"
+**Key Information Needed:**
+- What's included inside?
+- What's included outside?
+- Property size (bedrooms and storeys)
 
-**Important:** If only interior or only exterior mentioned, DO NOT classify as home painting
+**Examples:**
+- "Paint whole house" → Ask inside/outside/both
+- "Inside and outside" → Ask property details
+- "Full repaint" → Confirm both interior and exterior
 
-
-### 4. Roof Painting
-**Definition:** Any roof surface painting - tiles, Colorbond, metal, corrugated iron, etc.
+### Roof Painting
+**Definition:** Any roof surface painting - tiles, Colorbond, metal, corrugated iron
 
 **Size Determination:**
 - Small: Touch-ups/repairs, shed roof, or single-storey granny flat
 - Medium: Full roof of single-storey home
 - Large: Multi-storey home or complex roof design
 
-**Essential Questions:**
-1. "Is this a full roof repaint or touch-ups?"
-2. If full: "Single or multi-storey?"
-3. If unclear: "Standard roof or complex design?"
+**Key Information Needed:**
+- Full roof or repairs/sections?
+- Property type and storeys
+- Roof material (tiles, metal, Colorbond)
 
+**Examples:**
+- "Roof needs painting" → Ask full or repairs
+- "Terracotta tiles" → Ask property size
+- "Garage roof only" → Small
 
-### 5. FENCES
+### Fence Painting
 **Definition:** Fences, gates, and railings only
 
 **Size Determination:**
@@ -92,161 +84,103 @@ Primary Focus: Residential and commercial painting services including interior, 
 - Medium: Fence 30-60m
 - Large: Fence >60m or complex multiple sections
 
-**Essential Questions:**
-- "Approximate fence length in metres?"
-- "Is this a full fence or just sections/gate?"
-- "What material is the fence made from? (e.g. Wood, Colorbond, brick render)"
+**Key Information Needed:**
+- Approximate fence length in metres
+- Full fence or just sections/gate?
+- Material: timber/wood, Colorbond, metal, brick render
 
+**Examples:**
+- "Front fence" → Ask length and material
+- "Colorbond fence" → Ask length
+- "Side gate only" → Small
 
-### 6. Floor Painting
-**Definition:** Indoor residential floors only (wood, epoxy coatings). Excludes outdoor surfaces.
-
+### Floor Painting
+**Definition:** Indoor residential floors only (wood, epoxy coatings). Excludes outdoor surfaces
 
 **Size Determination:**
 - Small: Single room or <20m²
 - Medium: 2-4 rooms or 20-50m²
 - Large: Whole property or >50m²
 
+**Key Information Needed:**
+- Which rooms or area in m²?
+- Floor type (timber, concrete)
+- Current condition
 
-**Essential Questions:**
-1. "Is this for indoor flooring?"
-2. "What type of floor - timber, concrete, or other?"
-3. "How many rooms or approximate area in square metres?"
+**Examples:**
+- "Paint floorboards" → Ask rooms/area
+- "Garage floor" → Ask if internal, then size
+- "Wooden floors throughout" → Large
 
-
-### 7. Concrete Painting
-Definition: Outdoor concrete surfaces - driveways, patios, pathways, garage floors, outdoor entertainment areas
+### Concrete Painting
+**Definition:** Outdoor concrete surfaces - driveways, patios, pathways, outdoor areas
 
 **Size Determination:**
 - Small: <15m²
 - Medium: 15-40m²
 - Large: >40m²
 
-**Essential Questions:**
-1. "What type of concrete surface - driveway, patio, or other?"
-2. "Approximate area in square meters?
+**Key Information Needed:**
+- Type of surface (driveway, patio, pathway)
+- Approximate area in m²
+- Current condition
 
-### 8. Commercial Painting
-**Definition:** Non-residential jobs - shops, cafes, offices, warehouses, factories, construction sites
+**Examples:**
+- "Paint driveway" → Ask size
+- "Concrete patio" → Ask area
+- "Pool surround" → Ask area
 
+### Commercial Painting
+**Definition:** Non-residential properties - shops, offices, warehouses, factories
 
-**Size Determination:**: 
-- Small: Single room/office, small shop (<50m²), minor touch-ups
-- Medium: Multi-room office suite, standard retail space (50-200m²), café/restaurant
-- Large: Full warehouse, large office floor (>200m²), multi-storey building, factory
+**Size Determination:**
+- Small: Single room/office, small shop (<50m²)
+- Medium: Multi-room suite, standard retail (50-200m²)
+- Large: Full warehouse, large office floor (>200m²)
 
+**Key Information Needed:**
+- Type of commercial property
+- Interior, exterior, or both?
+- Approximate size or number of rooms
 
-**Essential Questions:**
-1. "What type of commercial property?"
-2. "Is this interior, exterior, or both?"
-3. "Approximate size or number of rooms/areas?"
+**Examples:**
+- "Office needs painting" → Ask size and scope
+- "Shopfront" → Ask interior/exterior/both
+- "Warehouse walls" → Ask approximate area
 
-
-### 9. Wallpapering
+### Wallpapering
 **Definition:** Installation or removal of wallpaper
 
-
-**Size Determination:**:
+**Size Determination:**
 - Small: 1 room/wall
 - Medium: 2-4 rooms/walls
 - Large: 5+ rooms or full property
 
+**Key Information Needed:**
+- Installation, removal, or both?
+- Number of rooms or walls
+- If removal, will walls be painted after?
 
-**Essential Questions:**
-1. "Is this wallpaper installation, removal, or both?"
-2. "How many rooms or walls?"
+**Examples:**
+- "Remove old wallpaper" → Ask rooms and if painting after
+- "Wallpaper feature wall" → Small
+- "Wallpaper bedrooms" → Ask how many
 
-
-### 10. Paint Removal
-
-**Definition:** Stripping or removing existing paint without repainting (e.g., lead paint removal, heritage restoration prep, furniture stripping)
+### Paint Removal
+**Definition:** Stripping existing paint without repainting (e.g., lead paint, restoration)
 
 **Size Determination:**
-- Small: Single item (door, window frame, piece of furniture) or <10m²
+- Small: Single item or <10m²
 - Medium: Multiple items or single room (10-30m²)
-- Large: Multiple rooms or large area (>30m²)
+- Large: Multiple rooms or >30m²
 
-**Essential Questions:**
-1. "What surface needs paint removal?"
-2. "Approximate area or number of items?"
-3. "Is this preparation for repainting or final finish?"
+**Key Information Needed:**
+- What needs paint removed?
+- Area or number of items
+- Reason for removal (lead, restoration, etc.)
+- Will it be repainted after?
 
-**Note:** If the job includes both removal AND repainting, classify by the main painting category (e.g., Interior/Exterior), not as Paint Removal
-
-
-## Common Ambiguities & Resolution
-
-
-### Initial Property Type Only
-When customer only provides property type (e.g., "2 bedroom house"):
-→ Ask: "Just checking — are you looking to paint inside, outside, or both?"
-
-### Overlapping Surfaces:
-- Deck/verandah painting → If timber deck: Interior/Exterior depending on location. If concrete: Concrete Painting
-- Garage floor → Concrete Painting (if outdoor/exposed concrete) or Floor Painting (if finished indoor garage)
-- External stairs → Concrete Painting (if concrete) or Exterior House Painting (if timber/attached to house)
-
-### Ambiguous Terms
-- "House painting" → Could be interior, exterior, or both - CLARIFY
-- "Interior painting" → Could be full or partial - ASK SCOPE
-- "2 rooms and a fence" → Special tasks (unrelated surfaces)
-- "Whole house" → Confirm if interior, exterior, or both
-
-
-## Question Flow Logic
-
-
-### Priority Order
-1. FIRST: Determine subcategory (what needs painting)
-2. SECOND: Determine scope (full vs partial)
-3. THIRD: Gather size details based on category
-4. FOURTH: Surface/material specifics
-
-
-### Efficiency Rules
-- Ask ONE question at a time
-- Skip questions already answered in initial input
-- If customer said "full interior" don't ask about whole property
-- If customer specified exact rooms, count them for sizing
-
-
-## Category Signal Words
-
-**Interior House Painting:**
-- Room names (bedroom, kitchen, bathroom, living room)
-- "Interior", "inside", "indoor"
-- "Walls and ceilings"
-
-
-**Exterior House Painting:**
-- "Outside", "external", "facade"
-- Weatherboards, render, cladding
-- Eaves, fascia, external walls
-
-
-**House Painting:**
-- "Whole house", "entire property"
-- "Inside and outside"
-- Both interior and exterior mentions
-
-
-**Fence Painting:**
-- Fence, gate, railing, picket
-- Paling, Colorbond fence
-
-**Concrete Painting:**
-- Driveway, patio, pathway, outdoor area
-- Garage floor, concrete sealer, epoxy driveway
-
-**Commercial Painting:**
-- Shop, office, warehouse, factory
-- Business premises, workplace, strata
-- Non-residential property types
-
-**Wallpapering:**
-- Wallpaper, wall covering
-- "Hang wallpaper", "strip wallpaper"
-
-**Paint Removal:**
-- Strip paint, remove paint, lead paint
-- Restoration, prepare for repainting (without actual painting)
+**Examples:**
+- "Strip paint from doors" → Ask how many
+- "Lead paint removal" → Ask area and surfaces
+- "Remove paint from brick" → Ask area
