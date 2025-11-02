@@ -29,6 +29,8 @@ app.use(express.json());
 // Configuration
 const HUBSPOT_TOKEN = process.env.HUBSPOT_TOKEN || "";
 const MCP_API_KEY = process.env.MCP_API_KEY || "";
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
+const IMGBB_API_KEY = process.env.IMGBB_API_KEY || "";
 const POSTCODE_URL = "https://raw.githubusercontent.com/cleopatterson/service_seeking/main/postcode_to_region_area.json";
 
 // Legacy constant for backward compatibility (painting services)
@@ -196,6 +198,36 @@ const tools = [
         }
       },
       required: ["email"]
+    }
+  },
+  {
+    name: "analyze_image",
+    description: "Analyze an image using OpenAI GPT-4 Vision API. Accepts base64 image data from file upload, returns AI description and optionally creates a permanent URL for the image that can be attached to HubSpot deals.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        image_data: {
+          type: "string",
+          description: "Base64 encoded image data (data URL format: 'data:image/jpeg;base64,...' or just the base64 string)"
+        },
+        question: {
+          type: "string",
+          description: "Question to ask about the image (optional - defaults to 'What is in this image? Describe it in detail.')"
+        },
+        create_permanent_url: {
+          type: "boolean",
+          description: "Whether to upload the image to a permanent URL (optional - defaults to false)"
+        },
+        openai_api_key: {
+          type: "string",
+          description: "OpenAI API key (optional - uses OPENAI_API_KEY env var if not provided)"
+        },
+        imgbb_api_key: {
+          type: "string",
+          description: "ImgBB API key for permanent URL upload (optional - uses IMGBB_API_KEY env var if not provided)"
+        }
+      },
+      required: ["image_data"]
     }
   }
 ];
@@ -857,6 +889,172 @@ async function getUser(args) {
   }
 }
 
+// Analyze Image tool - uses OpenAI Vision API and optionally creates permanent URL
+async function analyzeImage(args) {
+  const image_data = args.image_data;
+  const question = args.question || "What is in this image? Describe it in detail.";
+  const create_permanent_url = args.create_permanent_url || false;
+  const openai_api_key = args.openai_api_key || OPENAI_API_KEY;
+  const imgbb_api_key = args.imgbb_api_key || IMGBB_API_KEY;
+
+  // Validation
+  if (!image_data) {
+    const errorData = {
+      success: false,
+      error: "Missing required parameter: image_data"
+    };
+
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(errorData, null, 2)
+        }
+      ],
+      data: errorData
+    };
+  }
+
+  if (!openai_api_key) {
+    const errorData = {
+      success: false,
+      error: "Missing OpenAI API key (provide openai_api_key parameter or set OPENAI_API_KEY env variable)"
+    };
+
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(errorData, null, 2)
+        }
+      ],
+      data: errorData
+    };
+  }
+
+  try {
+    // Ensure image_data is in proper data URL format
+    let imageUrl = image_data;
+    if (!image_data.startsWith('data:image')) {
+      // If just base64 string, add the data URL prefix (assume JPEG)
+      imageUrl = `data:image/jpeg;base64,${image_data}`;
+    }
+
+    // Step 1: Call OpenAI Vision API
+    console.log('[analyze_image] Calling OpenAI Vision API...');
+    const visionResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${openai_api_key}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o',
+        messages: [
+          {
+            role: 'user',
+            content: [
+              {
+                type: 'text',
+                text: question
+              },
+              {
+                type: 'image_url',
+                image_url: {
+                  url: imageUrl
+                }
+              }
+            ]
+          }
+        ],
+        max_tokens: 500
+      })
+    });
+
+    if (!visionResponse.ok) {
+      const errorText = await visionResponse.text();
+      throw new Error(`OpenAI Vision API error ${visionResponse.status}: ${errorText}`);
+    }
+
+    const visionData = await visionResponse.json();
+    const description = visionData.choices[0].message.content;
+
+    console.log('[analyze_image] Vision analysis complete');
+
+    // Step 2: Optionally create permanent URL
+    let permanentUrl = null;
+
+    if (create_permanent_url) {
+      console.log('[analyze_image] Creating permanent URL...');
+
+      if (!imgbb_api_key) {
+        console.warn('[analyze_image] No ImgBB API key provided, skipping permanent URL creation');
+      } else {
+        try {
+          // Extract base64 data (remove data URL prefix)
+          const base64Data = image_data.includes('base64,')
+            ? image_data.split('base64,')[1]
+            : image_data;
+
+          // Upload to ImgBB
+          const formData = new URLSearchParams();
+          formData.append('image', base64Data);
+
+          const uploadResponse = await fetch(`https://api.imgbb.com/1/upload?key=${imgbb_api_key}`, {
+            method: 'POST',
+            body: formData
+          });
+
+          if (uploadResponse.ok) {
+            const uploadData = await uploadResponse.json();
+            permanentUrl = uploadData.data.url;
+            console.log('[analyze_image] Permanent URL created:', permanentUrl);
+          } else {
+            console.warn('[analyze_image] Failed to create permanent URL:', uploadResponse.status);
+          }
+        } catch (uploadErr) {
+          console.warn('[analyze_image] Error creating permanent URL:', uploadErr.message);
+        }
+      }
+    }
+
+    // Step 3: Return response
+    const responseData = {
+      success: true,
+      description: description,
+      permanent_url: permanentUrl,
+      question_asked: question,
+      has_permanent_url: !!permanentUrl
+    };
+
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(responseData, null, 2)
+        }
+      ],
+      data: responseData
+    };
+
+  } catch (err) {
+    const errorData = {
+      success: false,
+      error: `Failed to analyze image: ${err.message}`
+    };
+
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(errorData, null, 2)
+        }
+      ],
+      data: errorData
+    };
+  }
+}
+
 // Authentication middleware for MCP endpoint
 function authenticateMCP(req, res, next) {
   // Allow health check and root endpoint to be public
@@ -1048,6 +1246,15 @@ app.post("/mcp", authenticateMCP, async (req, res) => {
         } else if (name === "get_user") {
           const result = await getUser(args || {});
           return res.json(respond(result));
+        } else if (name === "analyze_image") {
+          const result = await analyzeImage(args || {});
+          const response = {
+            jsonrpc: "2.0",
+            id,
+            result,
+            ...(result.data && { data: result.data })
+          };
+          return res.json(response);
         } else {
           return res.json(respond(null, {
             code: -32602,
