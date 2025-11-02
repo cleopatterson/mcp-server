@@ -33,6 +33,14 @@ const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
 const IMGBB_API_KEY = process.env.IMGBB_API_KEY || "";
 const POSTCODE_URL = "https://raw.githubusercontent.com/cleopatterson/service_seeking/main/postcode_to_region_area.json";
 
+// OAuth Configuration
+const OAUTH_CLIENT_ID = process.env.OAUTH_CLIENT_ID || "painterjobs-mcp-client";
+const OAUTH_CLIENT_SECRET = process.env.OAUTH_CLIENT_SECRET || "";
+const OAUTH_TOKEN_EXPIRY = 3600; // 1 hour in seconds
+
+// In-memory token storage (use Redis/database in production)
+const accessTokens = new Map();
+
 // Legacy constant for backward compatibility (painting services)
 const VALID_SERVICES = CATEGORY_SERVICES.painter || [];
 
@@ -1058,7 +1066,7 @@ async function analyzeImage(args) {
 // Authentication middleware for MCP endpoint
 function authenticateMCP(req, res, next) {
   // Allow health check and root endpoint to be public
-  if (req.path === "/health" || req.path === "/") {
+  if (req.path === "/health" || req.path === "/" || req.path === "/oauth/token") {
     return next();
   }
 
@@ -1067,13 +1075,41 @@ function authenticateMCP(req, res, next) {
   const apiKeyHeader = req.headers['x-api-key'];
 
   let providedKey = null;
+  let isOAuthToken = false;
 
   if (authHeader && authHeader.startsWith('Bearer ')) {
     providedKey = authHeader.substring(7); // Remove 'Bearer ' prefix
+
+    // Check if it's an OAuth token
+    const tokenData = accessTokens.get(providedKey);
+    if (tokenData) {
+      // Verify token hasn't expired
+      if (Date.now() < tokenData.expiresAt) {
+        isOAuthToken = true;
+        req.oauthToken = tokenData;
+      } else {
+        // Token expired, remove it
+        accessTokens.delete(providedKey);
+        return res.status(401).json({
+          jsonrpc: "2.0",
+          id: req.body?.id || null,
+          error: {
+            code: -32000,
+            message: "Unauthorized - OAuth token expired"
+          }
+        });
+      }
+    }
   } else if (apiKeyHeader) {
     providedKey = apiKeyHeader;
   }
 
+  // If OAuth token is valid, allow access
+  if (isOAuthToken) {
+    return next();
+  }
+
+  // Otherwise, check against MCP_API_KEY
   if (!MCP_API_KEY) {
     console.error("[AUTH] MCP_API_KEY not configured in environment");
     return res.status(500).json({
@@ -1270,6 +1306,259 @@ app.post("/mcp", authenticateMCP, async (req, res) => {
     }
   } catch (error) {
     console.error("MCP request error:", error);
+    return res.json(respond(null, {
+      code: -32603,
+      message: error.message || "Internal server error"
+    }));
+  }
+});
+
+// OAuth 2.0 Token Endpoint (Client Credentials Flow)
+app.post("/oauth/token", express.urlencoded({ extended: true }), (req, res) => {
+  const { grant_type, client_id, client_secret } = req.body;
+
+  console.log(`[OAUTH] Token request - grant_type: ${grant_type}, client_id: ${client_id}`);
+
+  // Validate grant type
+  if (grant_type !== "client_credentials") {
+    return res.status(400).json({
+      error: "unsupported_grant_type",
+      error_description: "Only client_credentials grant type is supported"
+    });
+  }
+
+  // Validate client credentials
+  if (!OAUTH_CLIENT_SECRET) {
+    console.error("[OAUTH] OAUTH_CLIENT_SECRET not configured");
+    return res.status(500).json({
+      error: "server_error",
+      error_description: "OAuth not configured on server"
+    });
+  }
+
+  if (client_id !== OAUTH_CLIENT_ID || client_secret !== OAUTH_CLIENT_SECRET) {
+    console.warn("[OAUTH] Invalid client credentials");
+    return res.status(401).json({
+      error: "invalid_client",
+      error_description: "Invalid client_id or client_secret"
+    });
+  }
+
+  // Generate access token
+  const accessToken = `mcp_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
+  const expiresAt = Date.now() + (OAUTH_TOKEN_EXPIRY * 1000);
+
+  // Store token
+  accessTokens.set(accessToken, {
+    clientId: client_id,
+    createdAt: Date.now(),
+    expiresAt: expiresAt
+  });
+
+  console.log(`[OAUTH] Token generated successfully, expires in ${OAUTH_TOKEN_EXPIRY}s`);
+
+  // Return token response
+  res.json({
+    access_token: accessToken,
+    token_type: "Bearer",
+    expires_in: OAUTH_TOKEN_EXPIRY
+  });
+});
+
+// SSE Endpoint for MCP Inspector and Claude Desktop
+app.get("/sse", (req, res) => {
+  // Set SSE headers
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('Access-Control-Allow-Origin', '*');
+
+  console.log('[SSE] Client connected');
+
+  // Send initial connection event
+  res.write('event: endpoint\n');
+  res.write(`data: ${JSON.stringify({ url: '/message' })}\n\n`);
+
+  // Keep connection alive
+  const keepAlive = setInterval(() => {
+    res.write(': keepalive\n\n');
+  }, 30000);
+
+  // Handle client disconnect
+  req.on('close', () => {
+    console.log('[SSE] Client disconnected');
+    clearInterval(keepAlive);
+    res.end();
+  });
+});
+
+// SSE Message Endpoint (for posting MCP requests)
+app.post("/message", authenticateMCP, async (req, res) => {
+  const { method, params, id } = req.body;
+
+  console.log(`[SSE-MCP] ${method}`);
+
+  const respond = (result, error = null) => ({
+    jsonrpc: "2.0",
+    id,
+    ...(error ? { error } : { result })
+  });
+
+  try {
+    // Handle MCP methods (reuse logic from /mcp endpoint)
+    switch (method) {
+      case "initialize":
+        return res.json(respond({
+          protocolVersion: "2025-06-18",
+          capabilities: {
+            tools: {},
+            resources: {}
+          },
+          serverInfo: {
+            name: "painterjobs-mcp",
+            version: "1.0.0"
+          }
+        }));
+
+      case "tools/list":
+        return res.json(respond({ tools }));
+
+      case "resources/list":
+        return res.json(respond({ resources }));
+
+      case "resources/read":
+        const { uri } = params;
+        if (uri === "painterjobs://valid-services") {
+          return res.json(respond({
+            contents: [
+              {
+                uri,
+                mimeType: "application/json",
+                text: JSON.stringify({
+                  services: VALID_SERVICES,
+                  note: "Service parameter must match one of these values EXACTLY"
+                }, null, 2)
+              }
+            ]
+          }));
+        } else if (uri === "painterjobs://painting-knowledge-base") {
+          try {
+            const knowledgeBasePath = join(__dirname, "resources", "painting", "knowledge_base.txt");
+            const knowledgeBaseContent = readFileSync(knowledgeBasePath, "utf-8");
+            return res.json(respond({
+              contents: [
+                {
+                  uri,
+                  mimeType: "text/plain",
+                  text: knowledgeBaseContent
+                }
+              ]
+            }));
+          } catch (err) {
+            return res.json(respond(null, {
+              code: -32603,
+              message: `Failed to read knowledge base: ${err.message}`
+            }));
+          }
+        } else if (uri === "painterjobs://pricing-reference") {
+          try {
+            const pricingReferencePath = join(__dirname, "resources", "painting", "pricing_reference.txt");
+            const pricingReferenceContent = readFileSync(pricingReferencePath, "utf-8");
+            return res.json(respond({
+              contents: [
+                {
+                  uri,
+                  mimeType: "text/plain",
+                  text: pricingReferenceContent
+                }
+              ]
+            }));
+          } catch (err) {
+            return res.json(respond(null, {
+              code: -32603,
+              message: `Failed to read pricing reference: ${err.message}`
+            }));
+          }
+        } else if (uri === "painterjobs://pricing-analysis-guide") {
+          try {
+            const pricingAnalysisPath = join(__dirname, "resources", "painting", "pricing_analysis_guide.txt");
+            const pricingAnalysisContent = readFileSync(pricingAnalysisPath, "utf-8");
+            return res.json(respond({
+              contents: [
+                {
+                  uri,
+                  mimeType: "text/plain",
+                  text: pricingAnalysisContent
+                }
+              ]
+            }));
+          } catch (err) {
+            return res.json(respond(null, {
+              code: -32603,
+              message: `Failed to read pricing analysis guide: ${err.message}`
+            }));
+          }
+        } else {
+          return res.json(respond(null, {
+            code: -32602,
+            message: `Unknown resource: ${uri}`
+          }));
+        }
+
+      case "tools/call":
+        const { name, arguments: args } = params;
+
+        if (name === "get_top_painters") {
+          const result = await getTopPainters(args || {});
+          const response = {
+            jsonrpc: "2.0",
+            id,
+            result,
+            ...(result.data && { data: result.data })
+          };
+          return res.json(response);
+        } else if (name === "create_job") {
+          const result = await createJob(args || {});
+          const response = {
+            jsonrpc: "2.0",
+            id,
+            result,
+            ...(result.data && { data: result.data })
+          };
+          return res.json(response);
+        } else if (name === "get_knowledge_base") {
+          const result = await getKnowledgeBase(args || {});
+          return res.json(respond(result));
+        } else if (name === "get_pricing_guide") {
+          const result = await getPricingGuide(args || {});
+          return res.json(respond(result));
+        } else if (name === "get_user") {
+          const result = await getUser(args || {});
+          return res.json(respond(result));
+        } else if (name === "analyze_image") {
+          const result = await analyzeImage(args || {});
+          const response = {
+            jsonrpc: "2.0",
+            id,
+            result,
+            ...(result.data && { data: result.data })
+          };
+          return res.json(response);
+        } else {
+          return res.json(respond(null, {
+            code: -32602,
+            message: `Unknown tool: ${name}`
+          }));
+        }
+
+      default:
+        return res.json(respond(null, {
+          code: -32601,
+          message: `Method not found: ${method}`
+        }));
+    }
+  } catch (error) {
+    console.error("SSE-MCP request error:", error);
     return res.json(respond(null, {
       code: -32603,
       message: error.message || "Internal server error"
