@@ -12,6 +12,9 @@ import dotenv from "dotenv";
 import { readFileSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
+import { Server } from "@modelcontextprotocol/sdk/server/index.js";
+import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
+import { ListToolsRequestSchema, CallToolRequestSchema, ListResourcesRequestSchema, ReadResourceRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 
 dotenv.config();
 
@@ -1063,6 +1066,101 @@ async function analyzeImage(args) {
   }
 }
 
+// ============================================================================
+// FastMCP Server Setup (for proper MCP protocol support)
+// ============================================================================
+
+const mcpServer = new Server(
+  {
+    name: "painterjobs-mcp",
+    version: "1.0.0"
+  },
+  {
+    capabilities: {
+      tools: {},
+      resources: {}
+    }
+  }
+);
+
+// Register MCP tool handlers
+mcpServer.setRequestHandler(ListToolsRequestSchema, async () => ({
+  tools: tools
+}));
+
+mcpServer.setRequestHandler(CallToolRequestSchema, async (request) => {
+  const { name, arguments: args } = request.params;
+
+  if (name === "get_top_painters") {
+    return await getTopPainters(args || {});
+  } else if (name === "create_job") {
+    return await createJob(args || {});
+  } else if (name === "get_knowledge_base") {
+    return await getKnowledgeBase(args || {});
+  } else if (name === "get_pricing_guide") {
+    return await getPricingGuide(args || {});
+  } else if (name === "get_user") {
+    return await getUser(args || {});
+  } else if (name === "analyze_image") {
+    return await analyzeImage(args || {});
+  }
+
+  throw new Error(`Unknown tool: ${name}`);
+});
+
+mcpServer.setRequestHandler(ListResourcesRequestSchema, async () => ({
+  resources: resources
+}));
+
+mcpServer.setRequestHandler(ReadResourceRequestSchema, async (request) => {
+  const { uri } = request.params;
+
+  if (uri === "painterjobs://valid-services") {
+    return {
+      contents: [{
+        uri,
+        mimeType: "application/json",
+        text: JSON.stringify({
+          services: VALID_SERVICES,
+          note: "Service parameter must match one of these values EXACTLY"
+        }, null, 2)
+      }]
+    };
+  } else if (uri === "painterjobs://painting-knowledge-base") {
+    const knowledgeBasePath = join(__dirname, "resources", "painting", "knowledge_base.txt");
+    const knowledgeBaseContent = readFileSync(knowledgeBasePath, "utf-8");
+    return {
+      contents: [{
+        uri,
+        mimeType: "text/plain",
+        text: knowledgeBaseContent
+      }]
+    };
+  } else if (uri === "painterjobs://pricing-reference") {
+    const pricingReferencePath = join(__dirname, "resources", "painting", "pricing_reference.txt");
+    const pricingReferenceContent = readFileSync(pricingReferencePath, "utf-8");
+    return {
+      contents: [{
+        uri,
+        mimeType: "text/plain",
+        text: pricingReferenceContent
+      }]
+    };
+  } else if (uri === "painterjobs://pricing-analysis-guide") {
+    const pricingAnalysisPath = join(__dirname, "resources", "painting", "pricing_analysis_guide.txt");
+    const pricingAnalysisContent = readFileSync(pricingAnalysisPath, "utf-8");
+    return {
+      contents: [{
+        uri,
+        mimeType: "text/plain",
+        text: pricingAnalysisContent
+      }]
+    };
+  }
+
+  throw new Error(`Unknown resource: ${uri}`);
+});
+
 // Authentication middleware for MCP endpoint
 function authenticateMCP(req, res, next) {
   // Allow health check, root endpoint, SSE endpoint, and OAuth token to be public
@@ -1376,249 +1474,14 @@ app.post("/oauth/token", express.urlencoded({ extended: true }), (req, res) => {
   });
 });
 
-// SSE Endpoint for MCP Inspector and Claude Desktop
-app.get("/sse", (req, res) => {
-  // Set SSE headers
-  res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
-  res.setHeader('Connection', 'keep-alive');
-  res.setHeader('Access-Control-Allow-Origin', '*');
+// FastMCP SSE Endpoint for MCP Inspector, Claude Desktop, and OpenAI Platform
+app.get("/sse", async (req, res) => {
+  console.log('[FastMCP SSE] Client connecting');
 
-  console.log('[SSE] Client connected');
+  const transport = new SSEServerTransport("/message", res);
+  await mcpServer.connect(transport);
 
-  // Send initial connection event
-  res.write('event: endpoint\n');
-  res.write(`data: ${JSON.stringify({ url: '/message' })}\n\n`);
-
-  // Keep connection alive
-  const keepAlive = setInterval(() => {
-    res.write(': keepalive\n\n');
-  }, 30000);
-
-  // Handle client disconnect
-  req.on('close', () => {
-    console.log('[SSE] Client disconnected');
-    clearInterval(keepAlive);
-    res.end();
-  });
-});
-
-// SSE Message Endpoint (for posting MCP requests)
-app.post("/message", async (req, res) => {
-  const { method, params, id } = req.body;
-
-  console.log(`[SSE-MCP] ${method}`);
-
-  const respond = (result, error = null) => ({
-    jsonrpc: "2.0",
-    id,
-    ...(error ? { error } : { result })
-  });
-
-  // For non-initialize methods, require authentication
-  if (method !== "initialize") {
-    // Check authentication manually
-    const authHeader = req.headers.authorization;
-    const apiKeyHeader = req.headers['x-api-key'];
-
-    let providedKey = null;
-    let isAuthenticated = false;
-
-    if (authHeader && authHeader.startsWith('Bearer ')) {
-      providedKey = authHeader.substring(7);
-
-      // Check OAuth token
-      const tokenData = accessTokens.get(providedKey);
-      if (tokenData && Date.now() < tokenData.expiresAt) {
-        isAuthenticated = true;
-      }
-      // Check MCP_API_KEY
-      else if (MCP_API_KEY && providedKey === MCP_API_KEY) {
-        isAuthenticated = true;
-      }
-    } else if (apiKeyHeader && MCP_API_KEY && apiKeyHeader === MCP_API_KEY) {
-      isAuthenticated = true;
-    }
-
-    if (!isAuthenticated) {
-      return res.status(401).json(respond(null, {
-        code: -32000,
-        message: "Unauthorized - Authentication required"
-      }));
-    }
-  }
-
-  try{
-    // Handle MCP methods (reuse logic from /mcp endpoint)
-    switch (method) {
-      case "initialize":
-        return res.json(respond({
-          protocolVersion: "2024-11-05",
-          capabilities: {
-            tools: {},
-            resources: {},
-            experimental: {}
-          },
-          serverInfo: {
-            name: "painterjobs-mcp",
-            version: "1.0.0"
-          },
-          authentication: {
-            type: "oauth2",
-            oauth2: {
-              authorizationUrl: null,
-              tokenUrl: `${process.env.REPL_SLUG ? `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co` : `http://localhost:${process.env.PORT || 3000}`}/oauth/token`,
-              clientId: OAUTH_CLIENT_ID,
-              grantType: "client_credentials",
-              scopes: []
-            }
-          }
-        }));
-
-      case "tools/list":
-        return res.json(respond({ tools }));
-
-      case "resources/list":
-        return res.json(respond({ resources }));
-
-      case "resources/read":
-        const { uri } = params;
-        if (uri === "painterjobs://valid-services") {
-          return res.json(respond({
-            contents: [
-              {
-                uri,
-                mimeType: "application/json",
-                text: JSON.stringify({
-                  services: VALID_SERVICES,
-                  note: "Service parameter must match one of these values EXACTLY"
-                }, null, 2)
-              }
-            ]
-          }));
-        } else if (uri === "painterjobs://painting-knowledge-base") {
-          try {
-            const knowledgeBasePath = join(__dirname, "resources", "painting", "knowledge_base.txt");
-            const knowledgeBaseContent = readFileSync(knowledgeBasePath, "utf-8");
-            return res.json(respond({
-              contents: [
-                {
-                  uri,
-                  mimeType: "text/plain",
-                  text: knowledgeBaseContent
-                }
-              ]
-            }));
-          } catch (err) {
-            return res.json(respond(null, {
-              code: -32603,
-              message: `Failed to read knowledge base: ${err.message}`
-            }));
-          }
-        } else if (uri === "painterjobs://pricing-reference") {
-          try {
-            const pricingReferencePath = join(__dirname, "resources", "painting", "pricing_reference.txt");
-            const pricingReferenceContent = readFileSync(pricingReferencePath, "utf-8");
-            return res.json(respond({
-              contents: [
-                {
-                  uri,
-                  mimeType: "text/plain",
-                  text: pricingReferenceContent
-                }
-              ]
-            }));
-          } catch (err) {
-            return res.json(respond(null, {
-              code: -32603,
-              message: `Failed to read pricing reference: ${err.message}`
-            }));
-          }
-        } else if (uri === "painterjobs://pricing-analysis-guide") {
-          try {
-            const pricingAnalysisPath = join(__dirname, "resources", "painting", "pricing_analysis_guide.txt");
-            const pricingAnalysisContent = readFileSync(pricingAnalysisPath, "utf-8");
-            return res.json(respond({
-              contents: [
-                {
-                  uri,
-                  mimeType: "text/plain",
-                  text: pricingAnalysisContent
-                }
-              ]
-            }));
-          } catch (err) {
-            return res.json(respond(null, {
-              code: -32603,
-              message: `Failed to read pricing analysis guide: ${err.message}`
-            }));
-          }
-        } else {
-          return res.json(respond(null, {
-            code: -32602,
-            message: `Unknown resource: ${uri}`
-          }));
-        }
-
-      case "tools/call":
-        const { name, arguments: args } = params;
-
-        if (name === "get_top_painters") {
-          const result = await getTopPainters(args || {});
-          const response = {
-            jsonrpc: "2.0",
-            id,
-            result,
-            ...(result.data && { data: result.data })
-          };
-          return res.json(response);
-        } else if (name === "create_job") {
-          const result = await createJob(args || {});
-          const response = {
-            jsonrpc: "2.0",
-            id,
-            result,
-            ...(result.data && { data: result.data })
-          };
-          return res.json(response);
-        } else if (name === "get_knowledge_base") {
-          const result = await getKnowledgeBase(args || {});
-          return res.json(respond(result));
-        } else if (name === "get_pricing_guide") {
-          const result = await getPricingGuide(args || {});
-          return res.json(respond(result));
-        } else if (name === "get_user") {
-          const result = await getUser(args || {});
-          return res.json(respond(result));
-        } else if (name === "analyze_image") {
-          const result = await analyzeImage(args || {});
-          const response = {
-            jsonrpc: "2.0",
-            id,
-            result,
-            ...(result.data && { data: result.data })
-          };
-          return res.json(response);
-        } else {
-          return res.json(respond(null, {
-            code: -32602,
-            message: `Unknown tool: ${name}`
-          }));
-        }
-
-      default:
-        return res.json(respond(null, {
-          code: -32601,
-          message: `Method not found: ${method}`
-        }));
-    }
-  } catch (error) {
-    console.error("SSE-MCP request error:", error);
-    return res.json(respond(null, {
-      code: -32603,
-      message: error.message || "Internal server error"
-    }));
-  }
+  console.log('[FastMCP SSE] Client connected');
 });
 
 // Health check endpoint
