@@ -1154,14 +1154,25 @@ app.post("/mcp", authenticateMCP, async (req, res) => {
     switch (method) {
       case "initialize":
         return res.json(respond({
-          protocolVersion: "2025-06-18",
-          capabilities: { 
+          protocolVersion: "2024-11-05",
+          capabilities: {
             tools: {},
-            resources: {}
+            resources: {},
+            experimental: {}
           },
           serverInfo: {
             name: "painterjobs-mcp",
             version: "1.0.0"
+          },
+          authentication: {
+            type: "oauth2",
+            oauth2: {
+              authorizationUrl: null,
+              tokenUrl: `${process.env.REPL_SLUG ? `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co` : `http://localhost:${process.env.PORT || 3000}`}/oauth/token`,
+              clientId: OAUTH_CLIENT_ID,
+              grantType: "client_credentials",
+              scopes: []
+            }
           }
         }));
 
@@ -1409,14 +1420,25 @@ app.post("/message", authenticateMCP, async (req, res) => {
     switch (method) {
       case "initialize":
         return res.json(respond({
-          protocolVersion: "2025-06-18",
+          protocolVersion: "2024-11-05",
           capabilities: {
             tools: {},
-            resources: {}
+            resources: {},
+            experimental: {}
           },
           serverInfo: {
             name: "painterjobs-mcp",
             version: "1.0.0"
+          },
+          authentication: {
+            type: "oauth2",
+            oauth2: {
+              authorizationUrl: null,
+              tokenUrl: `${process.env.REPL_SLUG ? `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co` : `http://localhost:${process.env.PORT || 3000}`}/oauth/token`,
+              clientId: OAUTH_CLIENT_ID,
+              grantType: "client_credentials",
+              scopes: []
+            }
           }
         }));
 
