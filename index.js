@@ -1065,8 +1065,8 @@ async function analyzeImage(args) {
 
 // Authentication middleware for MCP endpoint
 function authenticateMCP(req, res, next) {
-  // Allow health check and root endpoint to be public
-  if (req.path === "/health" || req.path === "/" || req.path === "/oauth/token") {
+  // Allow health check, root endpoint, SSE endpoint, and OAuth token to be public
+  if (req.path === "/health" || req.path === "/" || req.path === "/oauth/token" || req.path === "/sse") {
     return next();
   }
 
@@ -1404,7 +1404,7 @@ app.get("/sse", (req, res) => {
 });
 
 // SSE Message Endpoint (for posting MCP requests)
-app.post("/message", authenticateMCP, async (req, res) => {
+app.post("/message", async (req, res) => {
   const { method, params, id } = req.body;
 
   console.log(`[SSE-MCP] ${method}`);
@@ -1415,7 +1415,40 @@ app.post("/message", authenticateMCP, async (req, res) => {
     ...(error ? { error } : { result })
   });
 
-  try {
+  // For non-initialize methods, require authentication
+  if (method !== "initialize") {
+    // Check authentication manually
+    const authHeader = req.headers.authorization;
+    const apiKeyHeader = req.headers['x-api-key'];
+
+    let providedKey = null;
+    let isAuthenticated = false;
+
+    if (authHeader && authHeader.startsWith('Bearer ')) {
+      providedKey = authHeader.substring(7);
+
+      // Check OAuth token
+      const tokenData = accessTokens.get(providedKey);
+      if (tokenData && Date.now() < tokenData.expiresAt) {
+        isAuthenticated = true;
+      }
+      // Check MCP_API_KEY
+      else if (MCP_API_KEY && providedKey === MCP_API_KEY) {
+        isAuthenticated = true;
+      }
+    } else if (apiKeyHeader && MCP_API_KEY && apiKeyHeader === MCP_API_KEY) {
+      isAuthenticated = true;
+    }
+
+    if (!isAuthenticated) {
+      return res.status(401).json(respond(null, {
+        code: -32000,
+        message: "Unauthorized - Authentication required"
+      }));
+    }
+  }
+
+  try{
     // Handle MCP methods (reuse logic from /mcp endpoint)
     switch (method) {
       case "initialize":
