@@ -1241,19 +1241,25 @@ function authenticateMCP(req, res, next) {
     });
   }
 
-  if (!providedKey || providedKey !== MCP_API_KEY) {
-    console.warn("[AUTH] Unauthorized MCP access attempt");
-    return res.status(401).json({
-      jsonrpc: "2.0",
-      id: req.body?.id || null,
-      error: {
-        code: -32000,
-        message: "Unauthorized - Invalid or missing API key"
-      }
-    });
+  // If a key is provided, validate it
+  if (providedKey) {
+    if (providedKey !== MCP_API_KEY) {
+      console.warn("[AUTH] Invalid API key provided");
+      return res.status(401).json({
+        jsonrpc: "2.0",
+        id: req.body?.id || null,
+        error: {
+          code: -32000,
+          message: "Unauthorized - Invalid API key"
+        }
+      });
+    }
+    console.log("[AUTH] Valid API key provided");
+  } else {
+    console.log("[AUTH] No authentication provided - allowing public access");
   }
 
-  // Authentication successful
+  // Authentication successful (or no auth required)
   next();
 }
 
