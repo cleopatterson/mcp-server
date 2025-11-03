@@ -1255,12 +1255,18 @@ function authenticateMCP(req, res, next) {
       });
     }
     console.log("[AUTH] Valid API key provided");
+    next();
   } else {
-    console.log("[AUTH] No authentication provided - allowing public access");
+    console.warn("[AUTH] No authentication provided - rejecting request");
+    return res.status(401).json({
+      jsonrpc: "2.0",
+      id: req.body?.id || null,
+      error: {
+        code: -32000,
+        message: "Unauthorized - Missing API key"
+      }
+    });
   }
-
-  // Authentication successful (or no auth required)
-  next();
 }
 
 // MCP Protocol Endpoints with JSONRPC 2.0 support
