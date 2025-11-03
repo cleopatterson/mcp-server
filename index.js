@@ -329,8 +329,7 @@ async function getTopPainters(args) {
           type: "text",
           text: JSON.stringify(errorData, null, 2)
         }
-      ],
-      data: errorData
+      ]
     };
   }
 
@@ -390,8 +389,7 @@ async function getTopPainters(args) {
           type: "text",
           text: JSON.stringify(errorData, null, 2)
         }
-      ],
-      data: errorData
+      ]
     };
   }
 
@@ -476,8 +474,7 @@ async function getTopPainters(args) {
           type: "text",
           text: JSON.stringify(errorData, null, 2)
         }
-      ],
-      data: errorData
+      ]
     };
   }
 
@@ -587,8 +584,7 @@ async function createJob(args) {
           type: "text",
           text: JSON.stringify(errorData, null, 2)
         }
-      ],
-      data: errorData
+      ]
     };
   }
 
@@ -634,8 +630,7 @@ async function createJob(args) {
           type: "text",
           text: JSON.stringify(errorData, null, 2)
         }
-      ],
-      data: errorData
+      ]
     };
   }
 
@@ -737,8 +732,7 @@ async function createJob(args) {
           type: "text",
           text: JSON.stringify(errorData, null, 2)
         }
-      ],
-      data: errorData
+      ]
     };
   }
 }
@@ -827,8 +821,7 @@ async function getUser(args) {
           type: "text",
           text: JSON.stringify(errorData, null, 2)
         }
-      ],
-      data: errorData
+      ]
     };
   }
 
@@ -887,8 +880,7 @@ async function getUser(args) {
             type: "text",
             text: JSON.stringify(responseData, null, 2)
           }
-        ],
-        data: responseData
+        ]
       };
     } else {
       // No user found
@@ -905,8 +897,7 @@ async function getUser(args) {
             type: "text",
             text: JSON.stringify(responseData, null, 2)
           }
-        ],
-        data: responseData
+        ]
       };
     }
   } catch (err) {
@@ -923,8 +914,7 @@ async function getUser(args) {
           type: "text",
           text: JSON.stringify(errorData, null, 2)
         }
-      ],
-      data: errorData
+      ]
     };
   }
 }
@@ -950,8 +940,7 @@ async function analyzeImage(args) {
           type: "text",
           text: JSON.stringify(errorData, null, 2)
         }
-      ],
-      data: errorData
+      ]
     };
   }
 
@@ -967,8 +956,7 @@ async function analyzeImage(args) {
           type: "text",
           text: JSON.stringify(errorData, null, 2)
         }
-      ],
-      data: errorData
+      ]
     };
   }
 
@@ -1088,8 +1076,7 @@ async function analyzeImage(args) {
           type: "text",
           text: JSON.stringify(errorData, null, 2)
         }
-      ],
-      data: errorData
+      ]
     };
   }
 }
