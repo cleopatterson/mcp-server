@@ -1421,7 +1421,8 @@ app.post("/mcp", authenticateMCP, async (req, res) => {
 });
 
 // OAuth 2.0 Discovery Endpoints (for ChatGPT OAuth discovery)
-app.get("/.well-known/oauth-authorization-server", (req, res) => {
+// Handle both with and without /mcp suffix (ChatGPT requests both)
+app.get("/.well-known/oauth-authorization-server/:path?", (req, res) => {
   // Use OAUTH_BASE_URL from env, or build from request host
   const baseUrl = process.env.OAUTH_BASE_URL || `https://${req.get('host')}`;
 
@@ -1436,7 +1437,8 @@ app.get("/.well-known/oauth-authorization-server", (req, res) => {
 });
 
 // OAuth 2.0 Protected Resource Metadata (RFC 8707)
-app.get("/.well-known/oauth-protected-resource", (req, res) => {
+// Handle both with and without /mcp suffix (ChatGPT requests both)
+app.get("/.well-known/oauth-protected-resource/:path?", (req, res) => {
   const baseUrl = process.env.OAUTH_BASE_URL || `https://${req.get('host')}`;
 
   res.json({
