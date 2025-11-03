@@ -14,6 +14,7 @@ import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
+import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { ListToolsRequestSchema, CallToolRequestSchema, ListResourcesRequestSchema, ReadResourceRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 
 dotenv.config();
@@ -27,7 +28,38 @@ const CATEGORY_SERVICES = JSON.parse(readFileSync(categoryServicesPath, "utf-8")
 
 const app = express();
 app.use(cors());
-app.use(express.json());
+
+// Add request logging for debugging
+app.use((req, res, next) => {
+  console.error(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
+  next();
+});
+
+// JSON parsing with error handling
+app.use(express.json({
+  verify: (req, res, buf, encoding) => {
+    // Store raw body for debugging
+    req.rawBody = buf.toString(encoding || 'utf8');
+  }
+}));
+
+// JSON parsing error handler
+app.use((err, req, res, next) => {
+  if (err instanceof SyntaxError && err.status === 400 && 'body' in err) {
+    console.error('JSON Parse Error:', err.message);
+    console.error('Raw body:', req.rawBody?.substring(0, 500));
+    return res.status(400).json({
+      jsonrpc: "2.0",
+      id: null,
+      error: {
+        code: -32700,
+        message: "Parse error",
+        data: err.message
+      }
+    });
+  }
+  next(err);
+});
 
 // Configuration
 const HUBSPOT_TOKEN = process.env.HUBSPOT_TOKEN || "";
@@ -1482,6 +1514,25 @@ app.get("/sse", async (req, res) => {
   await mcpServer.connect(transport);
 
   console.log('[FastMCP SSE] Client connected');
+
+  // Handle transport close
+  transport.onclose = () => {
+    console.log('[FastMCP SSE] Transport closed');
+  };
+
+  transport.onerror = (error) => {
+    console.error('[FastMCP SSE] Transport error:', error);
+  };
+});
+
+// FastMCP Message Handler - receives JSON-RPC messages from SSE clients
+app.post("/message", express.json(), async (req, res) => {
+  console.log('[FastMCP Message] Received:', req.body);
+
+  // The SSEServerTransport handles routing these to the appropriate MCP server handlers
+  // We need to find the transport associated with this session and forward the message
+  // For now, just return 200 to see if messages are coming through
+  res.status(200).json({ received: true });
 });
 
 // Health check endpoint
@@ -1592,10 +1643,26 @@ app.get("/", (req, res) => {
   });
 });
 
-// Start HTTP server
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`✅ MCP Server running on port ${PORT}`);
-  console.log(`📍 Server URL: ${process.env.REPL_SLUG ? `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co` : `http://localhost:${PORT}`}`);
-  console.log(`📍 Check health: ${process.env.REPL_SLUG ? `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co` : `http://localhost:${PORT}`}/health`);
-});
+// Detect if we're running in STDIO mode (for MCP Inspector)
+const isStdioMode = !process.stdin.isTTY;
+
+if (isStdioMode) {
+  // STDIO mode - for MCP Inspector and Claude Desktop
+  console.error('🔌 Starting MCP server in STDIO mode...');
+
+  const transport = new StdioServerTransport();
+  mcpServer.connect(transport).then(() => {
+    console.error('✅ MCP Server ready (STDIO mode)');
+  }).catch((error) => {
+    console.error('❌ Failed to start STDIO server:', error);
+    process.exit(1);
+  });
+} else {
+  // HTTP mode - for Voiceflow and web-based integrations
+  const PORT = process.env.PORT || 3000;
+  app.listen(PORT, () => {
+    console.log(`✅ MCP Server running on port ${PORT}`);
+    console.log(`📍 Server URL: ${process.env.REPL_SLUG ? `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co` : `http://localhost:${PORT}`}`);
+    console.log(`📍 Check health: ${process.env.REPL_SLUG ? `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co` : `http://localhost:${PORT}`}/health`);
+  });
+}
