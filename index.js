@@ -2,7 +2,8 @@
 
 /**
  * Service Seeking MCP Server - HTTP Version
- * Express server with MCP protocol support (no MCP SDK server handlers)
+ * Express server with MCP protocol support via HTTP/JSON-RPC
+ * Supports STDIO transport for local testing with MCP Inspector
  */
 
 import express from "express";
@@ -13,7 +14,6 @@ import { readFileSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
-import { SSEServerTransport } from "@modelcontextprotocol/sdk/server/sse.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { ListToolsRequestSchema, CallToolRequestSchema, ListResourcesRequestSchema, ReadResourceRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 
@@ -1178,8 +1178,8 @@ mcpServer.setRequestHandler(ReadResourceRequestSchema, async (request) => {
 
 // Authentication middleware for MCP endpoint
 function authenticateMCP(req, res, next) {
-  // Allow health check, root endpoint, SSE endpoint, and OAuth token to be public
-  if (req.path === "/health" || req.path === "/" || req.path === "/oauth/token" || req.path === "/sse") {
+  // Allow health check, root endpoint, and OAuth token to be public
+  if (req.path === "/health" || req.path === "/" || req.path === "/oauth/token") {
     return next();
   }
 
@@ -1467,35 +1467,6 @@ app.post("/oauth/token", express.urlencoded({ extended: true }), (req, res) => {
     token_type: "Bearer",
     expires_in: OAUTH_TOKEN_EXPIRY
   });
-});
-
-// FastMCP SSE Endpoint for MCP Inspector, Claude Desktop, and OpenAI Platform
-app.get("/sse", async (req, res) => {
-  console.log('[FastMCP SSE] Client connecting');
-
-  const transport = new SSEServerTransport("/message", res);
-  await mcpServer.connect(transport);
-
-  console.log('[FastMCP SSE] Client connected');
-
-  // Handle transport close
-  transport.onclose = () => {
-    console.log('[FastMCP SSE] Transport closed');
-  };
-
-  transport.onerror = (error) => {
-    console.error('[FastMCP SSE] Transport error:', error);
-  };
-});
-
-// FastMCP Message Handler - receives JSON-RPC messages from SSE clients
-app.post("/message", express.json(), async (req, res) => {
-  console.log('[FastMCP Message] Received:', req.body);
-
-  // The SSEServerTransport handles routing these to the appropriate MCP server handlers
-  // We need to find the transport associated with this session and forward the message
-  // For now, just return 200 to see if messages are coming through
-  res.status(200).json({ received: true });
 });
 
 // Health check endpoint
