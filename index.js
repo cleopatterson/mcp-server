@@ -1422,9 +1422,10 @@ app.post("/mcp", authenticateMCP, async (req, res) => {
 
 // OAuth 2.0 Discovery Endpoints (for ChatGPT OAuth discovery)
 app.get("/.well-known/oauth-authorization-server", (req, res) => {
-  const baseUrl = process.env.REPL_SLUG
-    ? `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`
-    : `http://localhost:${process.env.PORT || 3000}`;
+  // Use the actual request host to build the base URL
+  const protocol = req.protocol || 'https';
+  const host = req.get('host');
+  const baseUrl = `${protocol}://${host}`;
 
   res.json({
     issuer: baseUrl,
