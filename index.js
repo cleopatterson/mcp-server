@@ -76,6 +76,10 @@ const OAUTH_TOKEN_EXPIRY = 3600; // 1 hour in seconds
 // In-memory token storage (use Redis/database in production)
 const accessTokens = new Map();
 
+// In-memory authorization code storage for OAuth flow
+// Maps authorization codes to { codeVerifier, createdAt }
+const authorizationCodes = new Map();
+
 // Legacy constant for backward compatibility (painting services)
 const VALID_SERVICES = CATEGORY_SERVICES.painter || [];
 
@@ -1182,6 +1186,9 @@ function authenticateMCP(req, res, next) {
   if (req.path === "/health" ||
       req.path === "/" ||
       req.path === "/oauth/token" ||
+      req.path === "/oauth2/register" ||
+      req.path === "/oauth2/authorize" ||
+      req.path === "/oauth2/token" ||
       req.path.startsWith("/.well-known/") ||
       req.path.startsWith("/mcp/.well-known/")) {
     return next();
@@ -1465,7 +1472,7 @@ app.get("/.well-known/oauth-protected-resource/:path?", (req, res) => {
   });
 });
 
-// OpenID Connect Discovery (for ChatGPT - points to OAuth endpoints)
+// OpenID Connect Discovery (for ChatGPT OAuth flow)
 // Handle with and without path suffix, and /mcp prefix
 app.get([
   "/.well-known/openid-configuration",
@@ -1476,15 +1483,126 @@ app.get([
 
   res.json({
     issuer: baseUrl,
-    token_endpoint: `${baseUrl}/oauth/token`,
-    grant_types_supported: ["client_credentials"],
-    token_endpoint_auth_methods_supported: ["client_secret_post"],
-    response_types_supported: [],
-    scopes_supported: []
+    authorization_endpoint: `${baseUrl}/oauth2/authorize`,
+    token_endpoint: `${baseUrl}/oauth2/token`,
+    registration_endpoint: `${baseUrl}/oauth2/register`,
+    response_types_supported: ["code"],
+    grant_types_supported: ["authorization_code"],
+    token_endpoint_auth_methods_supported: ["none", "client_secret_post"],
+    code_challenge_methods_supported: ["S256"],
+    scopes_supported: ["openid", "profile", "email", "token"],
+    claims_supported: ["sub", "api_token"]
   });
 });
 
-// OAuth 2.0 Token Endpoint (Client Credentials Flow)
+// OAuth 2.0 Dynamic Client Registration (Step 2 in ChatGPT flow)
+app.post("/oauth2/register", express.json(), (req, res) => {
+  console.log("[OAUTH] Client registration request from ChatGPT");
+
+  // ChatGPT registers itself as a client
+  // Return a static response as per the article spec
+  res.json({
+    client_id: OAUTH_CLIENT_ID,
+    redirect_uris: [
+      "https://chatgpt.com/connector_platform_oauth_redirect"
+    ],
+    token_endpoint_auth_method: "none",
+    grant_types: ["authorization_code"],
+    response_types: ["code"],
+    application_type: "web",
+    scope: "openid email" // Limited scope as per article (Oct 29 update)
+  });
+});
+
+// OAuth 2.0 Authorization Endpoint (Step 3 - User Login)
+// Simplified version: auto-approves and generates authorization code
+app.get("/oauth2/authorize", (req, res) => {
+  const { response_type, client_id, redirect_uri, state, code_challenge, code_challenge_method, scope } = req.query;
+
+  console.log("[OAUTH] Authorization request:", { client_id, redirect_uri, code_challenge_method });
+
+  // Validate parameters
+  if (response_type !== "code") {
+    return res.status(400).send("Invalid response_type. Must be 'code'");
+  }
+
+  if (!redirect_uri || !redirect_uri.includes("chatgpt.com/connector_platform_oauth_redirect")) {
+    return res.status(400).send("Invalid or missing redirect_uri");
+  }
+
+  // Generate a random authorization code
+  const authCode = `auth_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
+
+  // Store the code with code_challenge for PKCE verification
+  authorizationCodes.set(authCode, {
+    codeChallenge: code_challenge,
+    codeChallengeMethod: code_challenge_method,
+    createdAt: Date.now()
+  });
+
+  console.log("[OAUTH] Generated authorization code (expires in 5 min)");
+
+  // Simplified flow: Auto-approve and redirect back to ChatGPT with the code
+  // In a real implementation, you'd show a login page here
+  const redirectUrl = new URL(redirect_uri);
+  redirectUrl.searchParams.set("code", authCode);
+  if (state) redirectUrl.searchParams.set("state", state);
+
+  res.redirect(redirectUrl.toString());
+});
+
+// OAuth 2.0 Token Endpoint (Step 4 - The "Secret Sauce")
+// Exchanges authorization code for API key
+app.post("/oauth2/token", express.urlencoded({ extended: true }), (req, res) => {
+  const { grant_type, code, client_id, code_verifier, redirect_uri } = req.body;
+
+  console.log("[OAUTH] Token exchange request:", { grant_type, client_id });
+
+  if (grant_type !== "authorization_code") {
+    return res.status(400).json({
+      error: "unsupported_grant_type",
+      error_description: "Only authorization_code grant type is supported"
+    });
+  }
+
+  // Validate the authorization code
+  const codeData = authorizationCodes.get(code);
+  if (!codeData) {
+    console.warn("[OAUTH] Invalid or expired authorization code");
+    return res.status(400).json({
+      error: "invalid_grant",
+      error_description: "Invalid or expired authorization code"
+    });
+  }
+
+  // Check code expiry (5 minutes)
+  if (Date.now() - codeData.createdAt > 5 * 60 * 1000) {
+    authorizationCodes.delete(code);
+    return res.status(400).json({
+      error: "invalid_grant",
+      error_description: "Authorization code expired"
+    });
+  }
+
+  // TODO: Verify PKCE code_verifier against code_challenge (optional for simplified version)
+  // In production, you'd implement SHA256 hash verification here
+
+  // Delete the code (one-time use)
+  authorizationCodes.delete(code);
+
+  // THIS IS THE SECRET SAUCE: Return the MCP_API_KEY as the access token
+  // ChatGPT will use this for all future /mcp requests
+  console.log("[OAUTH] Issuing API key as access token");
+
+  res.json({
+    access_token: MCP_API_KEY,
+    token_type: "Bearer",
+    expires_in: 7776000, // 90 days
+    scope: "token"
+  });
+});
+
+// OAuth 2.0 Token Endpoint (Client Credentials Flow) - Legacy support
 app.post("/oauth/token", express.urlencoded({ extended: true }), (req, res) => {
   const { grant_type, client_id, client_secret } = req.body;
 
