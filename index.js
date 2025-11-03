@@ -1178,8 +1178,11 @@ mcpServer.setRequestHandler(ReadResourceRequestSchema, async (request) => {
 
 // Authentication middleware for MCP endpoint
 function authenticateMCP(req, res, next) {
-  // Allow health check, root endpoint, and OAuth token to be public
-  if (req.path === "/health" || req.path === "/" || req.path === "/oauth/token") {
+  // Allow health check, root endpoint, OAuth endpoints, and well-known paths to be public
+  if (req.path === "/health" ||
+      req.path === "/" ||
+      req.path === "/oauth/token" ||
+      req.path.startsWith("/.well-known/")) {
     return next();
   }
 
@@ -1415,6 +1418,22 @@ app.post("/mcp", authenticateMCP, async (req, res) => {
       message: error.message || "Internal server error"
     }));
   }
+});
+
+// OAuth 2.0 Discovery Endpoints (for ChatGPT OAuth discovery)
+app.get("/.well-known/oauth-authorization-server", (req, res) => {
+  const baseUrl = process.env.REPL_SLUG
+    ? `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`
+    : `http://localhost:${process.env.PORT || 3000}`;
+
+  res.json({
+    issuer: baseUrl,
+    token_endpoint: `${baseUrl}/oauth/token`,
+    grant_types_supported: ["client_credentials"],
+    token_endpoint_auth_methods_supported: ["client_secret_post"],
+    response_types_supported: [],
+    scopes_supported: []
+  });
 });
 
 // OAuth 2.0 Token Endpoint (Client Credentials Flow)
