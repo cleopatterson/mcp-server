@@ -1644,7 +1644,10 @@ app.get("/", (req, res) => {
 });
 
 // Detect if we're running in STDIO mode (for MCP Inspector)
-const isStdioMode = !process.stdin.isTTY;
+// Only use STDIO mode if explicitly requested or when run by Inspector
+// Never use STDIO on Replit (always use HTTP server there)
+const isReplit = !!(process.env.REPL_SLUG || process.env.REPLIT_DB_URL);
+const isStdioMode = !isReplit && process.env.MCP_TRANSPORT === 'stdio';
 
 if (isStdioMode) {
   // STDIO mode - for MCP Inspector and Claude Desktop
