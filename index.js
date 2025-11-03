@@ -1435,6 +1435,19 @@ app.get("/.well-known/oauth-authorization-server", (req, res) => {
   });
 });
 
+// OAuth 2.0 Protected Resource Metadata (RFC 8707)
+app.get("/.well-known/oauth-protected-resource", (req, res) => {
+  const baseUrl = process.env.OAUTH_BASE_URL || `https://${req.get('host')}`;
+
+  res.json({
+    resource: `${baseUrl}/mcp`,
+    authorization_servers: [baseUrl],
+    bearer_methods_supported: ["header"],
+    resource_signing_alg_values_supported: [],
+    scopes_supported: []
+  });
+});
+
 // OAuth 2.0 Token Endpoint (Client Credentials Flow)
 app.post("/oauth/token", express.urlencoded({ extended: true }), (req, res) => {
   const { grant_type, client_id, client_secret } = req.body;
