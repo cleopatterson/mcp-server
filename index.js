@@ -567,9 +567,7 @@ async function getTopPainters(args) {
         type: "text",
         text: JSON.stringify(responseData, null, 2)
       }
-    ],
-    // Add structured data for direct field access (Voiceflow)
-    data: responseData
+    ]
   };
 }
 
@@ -725,8 +723,7 @@ async function createJob(args) {
           type: "text",
           text: JSON.stringify(responseData, null, 2)
         }
-      ],
-      data: responseData
+      ]
     };
   } catch (err) {
     const errorData = {
@@ -1076,8 +1073,7 @@ async function analyzeImage(args) {
           type: "text",
           text: JSON.stringify(responseData, null, 2)
         }
-      ],
-      data: responseData
+      ]
     };
 
   } catch (err) {
@@ -1396,24 +1392,10 @@ app.post("/mcp", authenticateMCP, async (req, res) => {
 
         if (name === "get_top_painters") {
           const result = await getTopPainters(args || {});
-          // Add structured data at JSONRPC level for Voiceflow access
-          const response = {
-            jsonrpc: "2.0",
-            id,
-            result,
-            // Expose data fields at top level for direct access
-            ...(result.data && { data: result.data })
-          };
-          return res.json(response);
+          return res.json(respond(result));
         } else if (name === "create_job") {
           const result = await createJob(args || {});
-          const response = {
-            jsonrpc: "2.0",
-            id,
-            result,
-            ...(result.data && { data: result.data })
-          };
-          return res.json(response);
+          return res.json(respond(result));
         } else if (name === "get_knowledge_base") {
           const result = await getKnowledgeBase(args || {});
           return res.json(respond(result));
@@ -1425,13 +1407,7 @@ app.post("/mcp", authenticateMCP, async (req, res) => {
           return res.json(respond(result));
         } else if (name === "analyze_image") {
           const result = await analyzeImage(args || {});
-          const response = {
-            jsonrpc: "2.0",
-            id,
-            result,
-            ...(result.data && { data: result.data })
-          };
-          return res.json(response);
+          return res.json(respond(result));
         } else {
           return res.json(respond(null, {
             code: -32602,
