@@ -1182,7 +1182,8 @@ function authenticateMCP(req, res, next) {
   if (req.path === "/health" ||
       req.path === "/" ||
       req.path === "/oauth/token" ||
-      req.path.startsWith("/.well-known/")) {
+      req.path.startsWith("/.well-known/") ||
+      req.path.startsWith("/mcp/.well-known/")) {
     return next();
   }
 
@@ -1195,9 +1196,11 @@ function authenticateMCP(req, res, next) {
 
   if (authHeader && authHeader.startsWith('Bearer ')) {
     providedKey = authHeader.substring(7); // Remove 'Bearer ' prefix
+    console.log(`[AUTH] Checking bearer token: ${providedKey.substring(0, 20)}...`);
 
     // Check if it's an OAuth token
     const tokenData = accessTokens.get(providedKey);
+    console.log(`[AUTH] OAuth token lookup result:`, tokenData ? 'Found' : 'Not found');
     if (tokenData) {
       // Verify token hasn't expired
       if (Date.now() < tokenData.expiresAt) {
@@ -1446,6 +1449,25 @@ app.get("/.well-known/oauth-protected-resource/:path?", (req, res) => {
     authorization_servers: [baseUrl],
     bearer_methods_supported: ["header"],
     resource_signing_alg_values_supported: [],
+    scopes_supported: []
+  });
+});
+
+// OpenID Connect Discovery (for ChatGPT - points to OAuth endpoints)
+// Handle with and without path suffix, and /mcp prefix
+app.get([
+  "/.well-known/openid-configuration",
+  "/.well-known/openid-configuration/:path",
+  "/mcp/.well-known/openid-configuration"
+], (req, res) => {
+  const baseUrl = process.env.OAUTH_BASE_URL || `https://${req.get('host')}`;
+
+  res.json({
+    issuer: baseUrl,
+    token_endpoint: `${baseUrl}/oauth/token`,
+    grant_types_supported: ["client_credentials"],
+    token_endpoint_auth_methods_supported: ["client_secret_post"],
+    response_types_supported: [],
     scopes_supported: []
   });
 });
