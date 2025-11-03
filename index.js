@@ -1282,11 +1282,19 @@ app.post("/mcp", authenticateMCP, async (req, res) => {
 
   console.log(`[MCP] ${method}`);
 
-  const respond = (result, error = null) => ({
-    jsonrpc: "2.0",
-    id,
-    ...(error ? { error } : { result })
-  });
+  const respond = (result, error = null) => {
+    const response = {
+      jsonrpc: "2.0",
+      ...(error ? { error } : { result })
+    };
+
+    // Only include id if it's present (notifications don't have id)
+    if (id !== undefined && id !== null) {
+      response.id = id;
+    }
+
+    return response;
+  };
 
   try {
     switch (method) {
@@ -1428,6 +1436,12 @@ app.post("/mcp", authenticateMCP, async (req, res) => {
         }
 
       default:
+        // Handle notifications (methods starting with "notifications/")
+        if (method && method.startsWith("notifications/")) {
+          // Notifications don't get responses in JSON-RPC 2.0
+          return res.status(200).end();
+        }
+
         return res.json(respond(null, {
           code: -32601,
           message: `Method not found: ${method}`
