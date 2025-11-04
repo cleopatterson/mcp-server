@@ -35,8 +35,9 @@ app.use((req, res, next) => {
   next();
 });
 
-// JSON parsing with error handling
+// JSON parsing with error handling (increased limit for image uploads)
 app.use(express.json({
+  limit: '10mb', // Increased from default 100kb to handle base64 images
   verify: (req, res, buf, encoding) => {
     // Store raw body for debugging
     req.rawBody = buf.toString(encoding || 'utf8');
