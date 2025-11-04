@@ -250,13 +250,17 @@ const tools = [
   },
   {
     name: "analyze_image",
-    description: "Analyze an image using OpenAI GPT-4 Vision API. Accepts base64 image data from file upload, returns AI description and optionally creates a permanent URL for the image that can be attached to HubSpot deals.",
+    description: "Analyze an image using OpenAI GPT-4 Vision API. Accepts either base64 image data OR an image URL, returns AI description and optionally creates a permanent URL for the image that can be attached to HubSpot deals.",
     inputSchema: {
       type: "object",
       properties: {
         image_data: {
           type: "string",
-          description: "Base64 encoded image data (data URL format: 'data:image/jpeg;base64,...' or just the base64 string)"
+          description: "Base64 encoded image data (data URL format: 'data:image/jpeg;base64,...' or just the base64 string). Provide either this OR image_url."
+        },
+        image_url: {
+          type: "string",
+          description: "URL of an already uploaded image. Provide either this OR image_data."
         },
         question: {
           type: "string",
@@ -264,7 +268,7 @@ const tools = [
         },
         create_permanent_url: {
           type: "boolean",
-          description: "Whether to upload the image to a permanent URL (optional - defaults to false)"
+          description: "Whether to upload the image to a permanent URL (optional - defaults to false). Only works if image_data is provided (not image_url)."
         },
         openai_api_key: {
           type: "string",
@@ -275,7 +279,29 @@ const tools = [
           description: "ImgBB API key for permanent URL upload (optional - uses IMGBB_API_KEY env var if not provided)"
         }
       },
-      required: ["image_data"]
+      required: []
+    }
+  },
+  {
+    name: "attach_image_to_deal",
+    description: "Attach an image URL to a HubSpot deal. Stores the image URL in a custom deal property so it can be sent to painters along with the job details.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        deal_id: {
+          type: "string",
+          description: "The HubSpot deal ID to attach the image to"
+        },
+        image_url: {
+          type: "string",
+          description: "The permanent URL of the uploaded image"
+        },
+        hubspot_token: {
+          type: "string",
+          description: "HubSpot API token (optional - uses HUBSPOT_TOKEN env var if not provided)"
+        }
+      },
+      required: ["deal_id", "image_url"]
     }
   }
 ];
@@ -927,16 +953,17 @@ async function getUser(args) {
 // Analyze Image tool - uses OpenAI Vision API and optionally creates permanent URL
 async function analyzeImage(args) {
   const image_data = args.image_data;
+  const image_url = args.image_url;  // Accept either base64 OR URL
   const question = args.question || "What is in this image? Describe it in detail.";
   const create_permanent_url = args.create_permanent_url || false;
   const openai_api_key = args.openai_api_key || OPENAI_API_KEY;
   const imgbb_api_key = args.imgbb_api_key || IMGBB_API_KEY;
 
-  // Validation
-  if (!image_data) {
+  // Validation - need either image_data or image_url
+  if (!image_data && !image_url) {
     const errorData = {
       success: false,
-      error: "Missing required parameter: image_data"
+      error: "Missing required parameter: either image_data (base64) or image_url must be provided"
     };
 
     return {
@@ -966,11 +993,20 @@ async function analyzeImage(args) {
   }
 
   try {
-    // Ensure image_data is in proper data URL format
-    let imageUrl = image_data;
-    if (!image_data.startsWith('data:image')) {
-      // If just base64 string, add the data URL prefix (assume JPEG)
-      imageUrl = `data:image/jpeg;base64,${image_data}`;
+    // Determine the image URL to send to OpenAI
+    let imageUrl;
+
+    if (image_url) {
+      // If URL provided, use it directly
+      imageUrl = image_url;
+    } else {
+      // If base64 provided, ensure it's in proper data URL format
+      if (!image_data.startsWith('data:image')) {
+        // If just base64 string, add the data URL prefix (assume JPEG)
+        imageUrl = `data:image/jpeg;base64,${image_data}`;
+      } else {
+        imageUrl = image_data;
+      }
     }
 
     // Step 1: Call OpenAI Vision API
@@ -1086,6 +1122,141 @@ async function analyzeImage(args) {
   }
 }
 
+// Attach Image to Deal - saves image URL to HubSpot deal
+async function attachImageToDeal(args) {
+  const deal_id = args.deal_id;
+  const image_url = args.image_url;
+  const hubspot_token = args.hubspot_token || HUBSPOT_TOKEN;
+
+  // Validation
+  if (!deal_id) {
+    const errorData = {
+      success: false,
+      error: "Missing required parameter: deal_id"
+    };
+
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(errorData, null, 2)
+        }
+      ]
+    };
+  }
+
+  if (!image_url) {
+    const errorData = {
+      success: false,
+      error: "Missing required parameter: image_url"
+    };
+
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(errorData, null, 2)
+        }
+      ]
+    };
+  }
+
+  if (!hubspot_token) {
+    const errorData = {
+      success: false,
+      error: "Missing HubSpot API token (provide hubspot_token parameter or set HUBSPOT_TOKEN env variable)"
+    };
+
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(errorData, null, 2)
+        }
+      ]
+    };
+  }
+
+  try {
+    console.log(`[attach_image_to_deal] Attaching image to deal ${deal_id}`);
+
+    // Step 1: Get current deal to check for existing images
+    const getResponse = await fetch(`https://api.hubapi.com/crm/v3/objects/deals/${deal_id}`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${hubspot_token}`,
+        'Content-Type': 'application/json'
+      }
+    });
+
+    if (!getResponse.ok) {
+      const errorText = await getResponse.text();
+      throw new Error(`HubSpot API error ${getResponse.status}: ${errorText}`);
+    }
+
+    const dealData = await getResponse.json();
+    const existingImages = dealData.properties.image_urls || '';
+
+    // Step 2: Append new image URL (comma-separated list)
+    const imageUrls = existingImages
+      ? `${existingImages},${image_url}`
+      : image_url;
+
+    // Step 3: Update deal with new image URLs
+    const updateResponse = await fetch(`https://api.hubapi.com/crm/v3/objects/deals/${deal_id}`, {
+      method: 'PATCH',
+      headers: {
+        'Authorization': `Bearer ${hubspot_token}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        properties: {
+          image_urls: imageUrls
+        }
+      })
+    });
+
+    if (!updateResponse.ok) {
+      const errorText = await updateResponse.text();
+      throw new Error(`HubSpot update error ${updateResponse.status}: ${errorText}`);
+    }
+
+    console.log(`[attach_image_to_deal] Successfully attached image to deal ${deal_id}`);
+
+    const responseData = {
+      success: true,
+      deal_id: deal_id,
+      image_url: image_url,
+      total_images: imageUrls.split(',').length,
+      message: "Image successfully attached to deal"
+    };
+
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(responseData, null, 2)
+        }
+      ]
+    };
+
+  } catch (err) {
+    const errorData = {
+      success: false,
+      error: `Failed to attach image to deal: ${err.message}`
+    };
+
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(errorData, null, 2)
+        }
+      ]
+    };
+  }
+}
+
 // ============================================================================
 // FastMCP Server Setup (for proper MCP protocol support)
 // ============================================================================
@@ -1123,6 +1294,8 @@ mcpServer.setRequestHandler(CallToolRequestSchema, async (request) => {
     return await getUser(args || {});
   } else if (name === "analyze_image") {
     return await analyzeImage(args || {});
+  } else if (name === "attach_image_to_deal") {
+    return await attachImageToDeal(args || {});
   }
 
   throw new Error(`Unknown tool: ${name}`);
@@ -1428,6 +1601,9 @@ app.post("/mcp", authenticateMCP, async (req, res) => {
           return res.json(respond(result));
         } else if (name === "analyze_image") {
           const result = await analyzeImage(args || {});
+          return res.json(respond(result));
+        } else if (name === "attach_image_to_deal") {
+          const result = await attachImageToDeal(args || {});
           return res.json(respond(result));
         } else {
           return res.json(respond(null, {
