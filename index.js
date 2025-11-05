@@ -1038,7 +1038,7 @@ async function analyzeImage(args) {
             ]
           }
         ],
-        max_tokens: 200  // Reduced from 500 - sufficient for 2-3 sentence response
+        max_tokens: 500
       })
     });
     promises.push(visionPromise);
