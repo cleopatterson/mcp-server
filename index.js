@@ -10,6 +10,7 @@ import express from "express";
 import cors from "cors";
 import fetch from "node-fetch";
 import dotenv from "dotenv";
+import crypto from "crypto";
 import { readFileSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, join } from "path";
@@ -66,7 +67,9 @@ app.use((err, req, res, next) => {
 const HUBSPOT_TOKEN = process.env.HUBSPOT_TOKEN || "";
 const MCP_API_KEY = process.env.MCP_API_KEY || "";
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
-const IMGBB_API_KEY = process.env.IMGBB_API_KEY || "";
+const CLOUDINARY_CLOUD_NAME = "dbwtidda3";
+const CLOUDINARY_API_KEY = "543844426683347";
+const CLOUDINARY_API_SECRET = process.env.CLOUDINARY_API_KEY || "";  // Note: Replit secret name is CLOUDINARY_API_KEY but it's actually the secret
 const POSTCODE_URL = "https://raw.githubusercontent.com/cleopatterson/service_seeking/main/postcode_to_region_area.json";
 
 // OAuth Configuration
@@ -250,7 +253,7 @@ const tools = [
   },
   {
     name: "analyze_image",
-    description: "Analyze an image using OpenAI GPT-4 Vision API. Accepts either base64 image data OR an image URL, returns AI description and optionally creates a permanent URL for the image that can be attached to HubSpot deals.",
+    description: "Analyze an image using OpenAI GPT-4 Vision API. Accepts either base64 image data OR an image URL, returns AI description and optionally creates a permanent URL via Cloudinary CDN for the image that can be attached to HubSpot deals.",
     inputSchema: {
       type: "object",
       properties: {
@@ -264,19 +267,15 @@ const tools = [
         },
         question: {
           type: "string",
-          description: "Question to ask about the image (optional - defaults to 'What is in this image? Describe it in detail.')"
+          description: "Question to ask about the image (optional - defaults to painting-specific analysis prompt)"
         },
         create_permanent_url: {
           type: "boolean",
-          description: "Whether to upload the image to a permanent URL (optional - defaults to false). Only works if image_data is provided (not image_url)."
+          description: "Whether to upload the image to a permanent Cloudinary URL (optional - defaults to false). Only works if image_data is provided (not image_url)."
         },
         openai_api_key: {
           type: "string",
           description: "OpenAI API key (optional - uses OPENAI_API_KEY env var if not provided)"
-        },
-        imgbb_api_key: {
-          type: "string",
-          description: "ImgBB API key for permanent URL upload (optional - uses IMGBB_API_KEY env var if not provided)"
         }
       },
       required: []
@@ -957,7 +956,6 @@ async function analyzeImage(args) {
   const question = args.question || "In 2-3 concise sentences, describe: 1) What type of surface (e.g., fence, walls, ceiling) and material (wood, brick, concrete, etc.), 2) Estimated size/scope (e.g., fence length in meters, room dimensions, number of rooms), 3) Current condition (damage, peeling, stains, weathering).";
   const create_permanent_url = args.create_permanent_url || false;
   const openai_api_key = args.openai_api_key || OPENAI_API_KEY;
-  const imgbb_api_key = args.imgbb_api_key || IMGBB_API_KEY;
 
   // Validation - need either image_data or image_url
   if (!image_data && !image_url) {
@@ -1045,20 +1043,33 @@ async function analyzeImage(args) {
     });
     promises.push(visionPromise);
 
-    // Start ImgBB upload in parallel (if needed)
+    // Start Cloudinary upload in parallel (if needed)
     let uploadPromise = null;
-    if (create_permanent_url && image_data && imgbb_api_key) {
+    if (create_permanent_url && image_data && CLOUDINARY_API_SECRET) {
       try {
         // Extract base64 data (remove data URL prefix)
         const base64Data = image_data.includes('base64,')
           ? image_data.split('base64,')[1]
           : image_data;
 
-        // Upload to ImgBB
-        const formData = new URLSearchParams();
-        formData.append('image', base64Data);
+        // Prepare data URL for Cloudinary
+        const dataUrl = image_data.startsWith('data:')
+          ? image_data
+          : `data:image/jpeg;base64,${base64Data}`;
 
-        uploadPromise = fetch(`https://api.imgbb.com/1/upload?key=${imgbb_api_key}`, {
+        // Generate timestamp and signature for Cloudinary
+        const timestamp = Math.round(Date.now() / 1000);
+        const paramsToSign = `timestamp=${timestamp}${CLOUDINARY_API_SECRET}`;
+        const signature = crypto.createHash('sha1').update(paramsToSign).digest('hex');
+
+        // Upload to Cloudinary
+        const formData = new URLSearchParams();
+        formData.append('file', dataUrl);
+        formData.append('api_key', CLOUDINARY_API_KEY);
+        formData.append('timestamp', timestamp.toString());
+        formData.append('signature', signature);
+
+        uploadPromise = fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`, {
           method: 'POST',
           body: formData
         });
@@ -1066,8 +1077,8 @@ async function analyzeImage(args) {
       } catch (uploadErr) {
         console.warn('[analyze_image] Error preparing image upload:', uploadErr.message);
       }
-    } else if (create_permanent_url && !imgbb_api_key) {
-      console.warn('[analyze_image] No ImgBB API key provided, skipping permanent URL creation');
+    } else if (create_permanent_url && !CLOUDINARY_API_SECRET) {
+      console.warn('[analyze_image] No Cloudinary API secret provided, skipping permanent URL creation');
     }
 
     // Wait for both operations to complete in parallel
@@ -1085,16 +1096,17 @@ async function analyzeImage(args) {
     const description = visionData.choices[0].message.content;
     console.log('[analyze_image] Vision analysis complete');
 
-    // Process ImgBB upload response
+    // Process Cloudinary upload response
     let permanentUrl = null;
     if (uploadResponse) {
       try {
         if (uploadResponse.ok) {
           const uploadData = await uploadResponse.json();
-          permanentUrl = uploadData.data.url;
+          permanentUrl = uploadData.secure_url;  // Cloudinary returns secure_url
           console.log('[analyze_image] Permanent URL created:', permanentUrl);
         } else {
-          console.warn('[analyze_image] Failed to create permanent URL:', uploadResponse.status);
+          const errorText = await uploadResponse.text();
+          console.warn('[analyze_image] Failed to create permanent URL:', uploadResponse.status, errorText);
         }
       } catch (uploadErr) {
         console.warn('[analyze_image] Error processing upload response:', uploadErr.message);
