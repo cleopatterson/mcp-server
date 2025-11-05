@@ -954,7 +954,7 @@ async function getUser(args) {
 async function analyzeImage(args) {
   const image_data = args.image_data;
   const image_url = args.image_url;  // Accept either base64 OR URL
-  const question = args.question || "What is in this image? Describe it in detail.";
+  const question = args.question || "In 2-3 concise sentences, describe: 1) What type of surface (e.g., fence, walls, ceiling) and material (wood, brick, concrete, etc.), 2) Estimated size/scope (e.g., fence length in meters, room dimensions, number of rooms), 3) Current condition (damage, peeling, stains, weathering).";
   const create_permanent_url = args.create_permanent_url || false;
   const openai_api_key = args.openai_api_key || OPENAI_API_KEY;
   const imgbb_api_key = args.imgbb_api_key || IMGBB_API_KEY;
@@ -1009,9 +1009,13 @@ async function analyzeImage(args) {
       }
     }
 
-    // Step 1: Call OpenAI Vision API
-    console.log('[analyze_image] Calling OpenAI Vision API...');
-    const visionResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+    // Step 1: Start both OpenAI Vision and ImgBB upload in parallel
+    console.log('[analyze_image] Starting OpenAI Vision analysis and image upload...');
+
+    const promises = [];
+
+    // Start OpenAI Vision API call
+    const visionPromise = fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Authorization': `Bearer ${openai_api_key}`,
@@ -1036,10 +1040,42 @@ async function analyzeImage(args) {
             ]
           }
         ],
-        max_tokens: 500
+        max_tokens: 200  // Reduced from 500 - sufficient for 2-3 sentence response
       })
     });
+    promises.push(visionPromise);
 
+    // Start ImgBB upload in parallel (if needed)
+    let uploadPromise = null;
+    if (create_permanent_url && image_data && imgbb_api_key) {
+      try {
+        // Extract base64 data (remove data URL prefix)
+        const base64Data = image_data.includes('base64,')
+          ? image_data.split('base64,')[1]
+          : image_data;
+
+        // Upload to ImgBB
+        const formData = new URLSearchParams();
+        formData.append('image', base64Data);
+
+        uploadPromise = fetch(`https://api.imgbb.com/1/upload?key=${imgbb_api_key}`, {
+          method: 'POST',
+          body: formData
+        });
+        promises.push(uploadPromise);
+      } catch (uploadErr) {
+        console.warn('[analyze_image] Error preparing image upload:', uploadErr.message);
+      }
+    } else if (create_permanent_url && !imgbb_api_key) {
+      console.warn('[analyze_image] No ImgBB API key provided, skipping permanent URL creation');
+    }
+
+    // Wait for both operations to complete in parallel
+    const results = await Promise.all(promises);
+    const visionResponse = results[0];
+    const uploadResponse = results[1] || null;
+
+    // Process OpenAI Vision response
     if (!visionResponse.ok) {
       const errorText = await visionResponse.text();
       throw new Error(`OpenAI Vision API error ${visionResponse.status}: ${errorText}`);
@@ -1047,43 +1083,21 @@ async function analyzeImage(args) {
 
     const visionData = await visionResponse.json();
     const description = visionData.choices[0].message.content;
-
     console.log('[analyze_image] Vision analysis complete');
 
-    // Step 2: Optionally create permanent URL
+    // Process ImgBB upload response
     let permanentUrl = null;
-
-    if (create_permanent_url) {
-      console.log('[analyze_image] Creating permanent URL...');
-
-      if (!imgbb_api_key) {
-        console.warn('[analyze_image] No ImgBB API key provided, skipping permanent URL creation');
-      } else {
-        try {
-          // Extract base64 data (remove data URL prefix)
-          const base64Data = image_data.includes('base64,')
-            ? image_data.split('base64,')[1]
-            : image_data;
-
-          // Upload to ImgBB
-          const formData = new URLSearchParams();
-          formData.append('image', base64Data);
-
-          const uploadResponse = await fetch(`https://api.imgbb.com/1/upload?key=${imgbb_api_key}`, {
-            method: 'POST',
-            body: formData
-          });
-
-          if (uploadResponse.ok) {
-            const uploadData = await uploadResponse.json();
-            permanentUrl = uploadData.data.url;
-            console.log('[analyze_image] Permanent URL created:', permanentUrl);
-          } else {
-            console.warn('[analyze_image] Failed to create permanent URL:', uploadResponse.status);
-          }
-        } catch (uploadErr) {
-          console.warn('[analyze_image] Error creating permanent URL:', uploadErr.message);
+    if (uploadResponse) {
+      try {
+        if (uploadResponse.ok) {
+          const uploadData = await uploadResponse.json();
+          permanentUrl = uploadData.data.url;
+          console.log('[analyze_image] Permanent URL created:', permanentUrl);
+        } else {
+          console.warn('[analyze_image] Failed to create permanent URL:', uploadResponse.status);
         }
+      } catch (uploadErr) {
+        console.warn('[analyze_image] Error processing upload response:', uploadErr.message);
       }
     }
 
