@@ -69,7 +69,7 @@ const MCP_API_KEY = process.env.MCP_API_KEY || "";
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
 const CLOUDINARY_CLOUD_NAME = "dbwtidda3";
 const CLOUDINARY_API_KEY = "543844426683347";
-const CLOUDINARY_API_SECRET = process.env.CLOUDINARY_API_KEY || "";  // Note: Replit secret name is CLOUDINARY_API_KEY but it's actually the secret
+const CLOUDINARY_API_SECRET = process.env.CLOUDINARY_API_SECRET || "";
 const POSTCODE_URL = "https://raw.githubusercontent.com/cleopatterson/service_seeking/main/postcode_to_region_area.json";
 
 // OAuth Configuration
