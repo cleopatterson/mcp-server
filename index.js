@@ -70,6 +70,7 @@ const OPENAI_API_KEY = process.env.OPENAI_API_KEY || "";
 const CLOUDINARY_CLOUD_NAME = "dbwtidda3";
 const CLOUDINARY_API_KEY = "543844426683347";
 const CLOUDINARY_API_SECRET = process.env.CLOUDINARY_API_SECRET || "";
+console.log('[CLOUDINARY DEBUG] API Secret loaded:', CLOUDINARY_API_SECRET ? 'YES (length: ' + CLOUDINARY_API_SECRET.length + ')' : 'NO - MISSING!');
 const POSTCODE_URL = "https://raw.githubusercontent.com/cleopatterson/service_seeking/main/postcode_to_region_area.json";
 
 // OAuth Configuration
