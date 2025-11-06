@@ -16,7 +16,7 @@ import { fileURLToPath } from "url";
 import { dirname, join } from "path";
 import { Server } from "@modelcontextprotocol/sdk/server/index.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
-import { ListToolsRequestSchema, CallToolRequestSchema, ListResourcesRequestSchema, ReadResourceRequestSchema } from "@modelcontextprotocol/sdk/types.js";
+import { ListToolsRequestSchema, CallToolRequestSchema, ListResourcesRequestSchema, ReadResourceRequestSchema, ListPromptsRequestSchema, GetPromptRequestSchema } from "@modelcontextprotocol/sdk/types.js";
 
 dotenv.config();
 
@@ -349,6 +349,15 @@ const resources = [
     name: "Pricing Analysis Guide",
     description: "Detailed guidance on how to analyze job requirements and provide intelligent price estimates with proper reasoning",
     mimeType: "text/plain"
+  }
+];
+
+// MCP Prompts - server-provided instructions for specific workflows
+const prompts = [
+  {
+    name: "guide_job_creation_with_buttons",
+    description: "Guide the user through creating a painting job using interactive button questions. This is the primary workflow for ChatGPT to collect job details.",
+    arguments: []
   }
 ];
 
@@ -1448,7 +1457,8 @@ const mcpServer = new Server(
   {
     capabilities: {
       tools: {},
-      resources: {}
+      resources: {},
+      prompts: {}
     }
   }
 );
@@ -1533,6 +1543,58 @@ mcpServer.setRequestHandler(ReadResourceRequestSchema, async (request) => {
   }
 
   throw new Error(`Unknown resource: ${uri}`);
+});
+
+mcpServer.setRequestHandler(ListPromptsRequestSchema, async () => ({
+  prompts: prompts
+}));
+
+mcpServer.setRequestHandler(GetPromptRequestSchema, async (request) => {
+  const { name } = request.params;
+
+  if (name === "guide_job_creation_with_buttons") {
+    return {
+      messages: [
+        {
+          role: "user",
+          content: {
+            type: "text",
+            text: "I need help with a painting job"
+          }
+        },
+        {
+          role: "assistant",
+          content: {
+            type: "text",
+            text: `I'll help you create a painting job! I'm going to use interactive buttons to make this quick and easy.
+
+**Your Workflow:**
+
+1. **Start with service type** - Call \`test_question_buttons\` with scenario "painting_type" to show painting service options
+2. **Ask about timing** - Call \`test_question_buttons\` with scenario "timing" to understand urgency
+3. **Discuss budget** - Call \`test_question_buttons\` with scenario "budget" if appropriate
+4. **Offer photo upload** - Call \`test_question_buttons\` with scenario "photos"
+
+**After collecting details with buttons:**
+- Get postcode (ask directly)
+- Read the \`painterjobs://painting-knowledge-base\` resource to determine job_size based on their answers
+- Read \`painterjobs://pricing-reference\` to provide estimate if asked
+- Call \`create_job\` tool to submit to HubSpot
+
+**Important:**
+- Use buttons for multiple choice questions (service type, timing, budget)
+- Ask open-ended questions directly (e.g., "Tell me more about the rooms", "What's your postcode?")
+- Always get job_description details before creating the job
+- The buttons make the experience interactive and faster for the customer
+
+Ready to start? Use test_question_buttons first!`
+          }
+        }
+      ]
+    };
+  }
+
+  throw new Error(`Unknown prompt: ${name}`);
 });
 
 // Authentication middleware for MCP endpoint
@@ -1682,6 +1744,58 @@ app.post("/mcp", authenticateMCP, async (req, res) => {
 
       case "resources/list":
         return res.json(respond({ resources }));
+
+      case "prompts/list":
+        return res.json(respond({ prompts }));
+
+      case "prompts/get":
+        const promptName = params.name;
+        if (promptName === "guide_job_creation_with_buttons") {
+          return res.json(respond({
+            messages: [
+              {
+                role: "user",
+                content: {
+                  type: "text",
+                  text: "I need help with a painting job"
+                }
+              },
+              {
+                role: "assistant",
+                content: {
+                  type: "text",
+                  text: `I'll help you create a painting job! I'm going to use interactive buttons to make this quick and easy.
+
+**Your Workflow:**
+
+1. **Start with service type** - Call \`test_question_buttons\` with scenario "painting_type" to show painting service options
+2. **Ask about timing** - Call \`test_question_buttons\` with scenario "timing" to understand urgency
+3. **Discuss budget** - Call \`test_question_buttons\` with scenario "budget" if appropriate
+4. **Offer photo upload** - Call \`test_question_buttons\` with scenario "photos"
+
+**After collecting details with buttons:**
+- Get postcode (ask directly)
+- Read the \`painterjobs://painting-knowledge-base\` resource to determine job_size based on their answers
+- Read \`painterjobs://pricing-reference\` to provide estimate if asked
+- Call \`create_job\` tool to submit to HubSpot
+
+**Important:**
+- Use buttons for multiple choice questions (service type, timing, budget)
+- Ask open-ended questions directly (e.g., "Tell me more about the rooms", "What's your postcode?")
+- Always get job_description details before creating the job
+- The buttons make the experience interactive and faster for the customer
+
+Ready to start? Use test_question_buttons first!`
+                }
+              }
+            ]
+          }));
+        } else {
+          return res.json(respond(null, {
+            code: -32602,
+            message: `Unknown prompt: ${promptName}`
+          }));
+        }
 
       case "resources/read":
         const { uri } = params;
