@@ -646,6 +646,113 @@ async function createJob(args) {
     };
   }
 
+  // Get server URL for component loading
+  const serverUrl = process.env.REPL_SLUG
+    ? `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`
+    : 'http://localhost:3000';
+
+  // Interactive UI: Check what information is missing and prompt with buttons
+
+  // 1. If no subtype (service type), show service selection buttons
+  if (!args.subtype) {
+    const responseData = {
+      _metaai: {
+        component: 'question-buttons',
+        url: `${serverUrl}/components/question-buttons.js`
+      },
+      type: 'question_with_buttons',
+      question: 'What type of painting service do you need?',
+      description: 'Select the option that best describes your project',
+      buttons: [
+        {
+          label: 'Interior Painting',
+          value: 'Interior House Painting',
+          icon: '🏠',
+          description: 'Walls, ceilings, rooms'
+        },
+        {
+          label: 'Exterior Painting',
+          value: 'Exterior House Painting',
+          icon: '🏡',
+          description: 'House exterior, fences, decks'
+        },
+        {
+          label: 'Commercial',
+          value: 'Commercial Painting',
+          icon: '🏢',
+          description: 'Office, retail, or warehouse'
+        },
+        {
+          label: 'Fence Painting',
+          value: 'Fence Painting',
+          icon: '🎨',
+          description: 'Timber or metal fences'
+        }
+      ],
+      next_step: "Once you select a service, I'll ask about timing and other details."
+    };
+
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(responseData, null, 2)
+        }
+      ]
+    };
+  }
+
+  // 2. If no timing, show timing buttons
+  if (!args.timing) {
+    const responseData = {
+      _metaai: {
+        component: 'question-buttons',
+        url: `${serverUrl}/components/question-buttons.js`
+      },
+      type: 'question_with_buttons',
+      question: 'When do you need this project completed?',
+      description: 'Help us find painters with the right availability',
+      buttons: [
+        {
+          label: 'ASAP',
+          value: 'ASAP',
+          icon: '⚡',
+          description: 'Within 1-2 weeks'
+        },
+        {
+          label: 'Within 2 weeks',
+          value: 'Within the next 2 weeks',
+          icon: '📅',
+          description: 'Flexible on exact timing'
+        },
+        {
+          label: 'Within a month',
+          value: 'Within the next month',
+          icon: '📆',
+          description: 'Planning ahead'
+        },
+        {
+          label: 'Just researching',
+          value: 'Just researching',
+          icon: '🤔',
+          description: 'Getting quotes for now'
+        }
+      ],
+      next_step: "After selecting timing, I'll need a few more details about your project."
+    };
+
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(responseData, null, 2)
+        }
+      ]
+    };
+  }
+
+  // Continue with actual job creation if all required fields are present...
+
   // Step 1: Get region and area from postcode
   let region = null;
   let area = null;
@@ -1566,28 +1673,32 @@ mcpServer.setRequestHandler(GetPromptRequestSchema, async (request) => {
           role: "assistant",
           content: {
             type: "text",
-            text: `I'll help you create a painting job! I'm going to use interactive buttons to make this quick and easy.
+            text: `I'll help you create a painting job! The \`create_job\` tool uses interactive buttons to collect information step by step.
 
-**Your Workflow:**
+**How it works:**
 
-1. **Start with service type** - Call \`test_question_buttons\` with scenario "painting_type" to show painting service options
-2. **Ask about timing** - Call \`test_question_buttons\` with scenario "timing" to understand urgency
-3. **Discuss budget** - Call \`test_question_buttons\` with scenario "budget" if appropriate
-4. **Offer photo upload** - Call \`test_question_buttons\` with scenario "photos"
-
-**After collecting details with buttons:**
-- Get postcode (ask directly)
-- Read the \`painterjobs://painting-knowledge-base\` resource to determine job_size based on their answers
-- Read \`painterjobs://pricing-reference\` to provide estimate if asked
-- Call \`create_job\` tool to submit to HubSpot
+1. **Start the job creation** - Call \`create_job\` with any information you have (or no arguments)
+2. **The tool shows interactive buttons** - It will present button choices for:
+   - Service type (Interior, Exterior, Commercial, etc.)
+   - Project timing (ASAP, within 2 weeks, etc.)
+3. **Collect remaining details** - After button selections, ask open-ended questions for:
+   - Postcode (ask directly)
+   - Job description details (use \`painterjobs://painting-knowledge-base\` resource for guidance)
+   - Budget (if user asks about pricing, use \`painterjobs://pricing-reference\`)
+4. **Submit complete job** - Call \`create_job\` again with all collected information
 
 **Important:**
-- Use buttons for multiple choice questions (service type, timing, budget)
-- Ask open-ended questions directly (e.g., "Tell me more about the rooms", "What's your postcode?")
-- Always get job_description details before creating the job
-- The buttons make the experience interactive and faster for the customer
+- The \`create_job\` tool itself returns the button UI when information is missing
+- Just call it and let it guide the conversation with buttons
+- When user clicks a button, their selection comes back as their next message
+- Fill in all required fields before the final submission
 
-Ready to start? Use test_question_buttons first!`
+**Required fields for final submission:**
+- subtype (collected via buttons)
+- timing (collected via buttons)
+- job_description, postcode, customer_type, customer_intent, job_size, estimate_range, preferred_contact_method
+
+Ready to start? Call \`create_job\` now and let the buttons guide you!`
           }
         }
       ]
@@ -1764,28 +1875,32 @@ app.post("/mcp", authenticateMCP, async (req, res) => {
                 role: "assistant",
                 content: {
                   type: "text",
-                  text: `I'll help you create a painting job! I'm going to use interactive buttons to make this quick and easy.
+                  text: `I'll help you create a painting job! The \`create_job\` tool uses interactive buttons to collect information step by step.
 
-**Your Workflow:**
+**How it works:**
 
-1. **Start with service type** - Call \`test_question_buttons\` with scenario "painting_type" to show painting service options
-2. **Ask about timing** - Call \`test_question_buttons\` with scenario "timing" to understand urgency
-3. **Discuss budget** - Call \`test_question_buttons\` with scenario "budget" if appropriate
-4. **Offer photo upload** - Call \`test_question_buttons\` with scenario "photos"
-
-**After collecting details with buttons:**
-- Get postcode (ask directly)
-- Read the \`painterjobs://painting-knowledge-base\` resource to determine job_size based on their answers
-- Read \`painterjobs://pricing-reference\` to provide estimate if asked
-- Call \`create_job\` tool to submit to HubSpot
+1. **Start the job creation** - Call \`create_job\` with any information you have (or no arguments)
+2. **The tool shows interactive buttons** - It will present button choices for:
+   - Service type (Interior, Exterior, Commercial, etc.)
+   - Project timing (ASAP, within 2 weeks, etc.)
+3. **Collect remaining details** - After button selections, ask open-ended questions for:
+   - Postcode (ask directly)
+   - Job description details (use \`painterjobs://painting-knowledge-base\` resource for guidance)
+   - Budget (if user asks about pricing, use \`painterjobs://pricing-reference\`)
+4. **Submit complete job** - Call \`create_job\` again with all collected information
 
 **Important:**
-- Use buttons for multiple choice questions (service type, timing, budget)
-- Ask open-ended questions directly (e.g., "Tell me more about the rooms", "What's your postcode?")
-- Always get job_description details before creating the job
-- The buttons make the experience interactive and faster for the customer
+- The \`create_job\` tool itself returns the button UI when information is missing
+- Just call it and let it guide the conversation with buttons
+- When user clicks a button, their selection comes back as their next message
+- Fill in all required fields before the final submission
 
-Ready to start? Use test_question_buttons first!`
+**Required fields for final submission:**
+- subtype (collected via buttons)
+- timing (collected via buttons)
+- job_description, postcode, customer_type, customer_intent, job_size, estimate_range, preferred_contact_method
+
+Ready to start? Call \`create_job\` now and let the buttons guide you!`
                 }
               }
             ]
