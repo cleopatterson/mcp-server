@@ -36,33 +36,6 @@ app.use('/components', express.static(join(__dirname, 'web/dist')));
 // Add request logging for debugging
 app.use((req, res, next) => {
   console.error(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
-
-  // Capture the original res.json to log response status
-  const originalJson = res.json.bind(res);
-  const originalSend = res.send.bind(res);
-  const originalEnd = res.end.bind(res);
-
-  res.json = function(body) {
-    console.error(`[RESPONSE] ${req.method} ${req.path} - Status: ${res.statusCode}`);
-    if (res.statusCode >= 400) {
-      console.error(`[ERROR] Response body:`, JSON.stringify(body).substring(0, 500));
-    }
-    return originalJson(body);
-  };
-
-  res.send = function(body) {
-    console.error(`[RESPONSE] ${req.method} ${req.path} - Status: ${res.statusCode}`);
-    if (res.statusCode >= 400) {
-      console.error(`[ERROR] Response body:`, typeof body === 'string' ? body.substring(0, 500) : body);
-    }
-    return originalSend(body);
-  };
-
-  res.end = function(body) {
-    console.error(`[RESPONSE] ${req.method} ${req.path} - Status: ${res.statusCode}`);
-    return originalEnd(body);
-  };
-
   next();
 });
 
@@ -1412,8 +1385,6 @@ mcpServer.setRequestHandler(ReadResourceRequestSchema, async (request) => {
 
 // Authentication middleware for MCP endpoint
 function authenticateMCP(req, res, next) {
-  console.error(`[AUTH] Checking ${req.method} ${req.path}`);
-
   // Allow health check, root endpoint, OAuth endpoints, and well-known paths to be public
   if (req.path === "/health" ||
       req.path === "/" ||
@@ -1423,7 +1394,6 @@ function authenticateMCP(req, res, next) {
       req.path === "/oauth2/token" ||
       req.path.startsWith("/.well-known/") ||
       req.path.startsWith("/mcp/.well-known/")) {
-    console.error(`[AUTH] Public endpoint - allowing access`);
     return next();
   }
 
@@ -1465,7 +1435,6 @@ function authenticateMCP(req, res, next) {
 
   // If OAuth token is valid, allow access
   if (isOAuthToken) {
-    console.error(`[AUTH] Valid OAuth token - allowing access`);
     return next();
   }
 
@@ -1485,9 +1454,7 @@ function authenticateMCP(req, res, next) {
   // If a key is provided, validate it
   if (providedKey) {
     if (providedKey !== MCP_API_KEY) {
-      console.error(`[AUTH] ❌ Invalid API key provided`);
-      console.error(`[AUTH] Expected: ${MCP_API_KEY.substring(0, 20)}...`);
-      console.error(`[AUTH] Received: ${providedKey.substring(0, 20)}...`);
+      console.warn("[AUTH] Invalid API key provided");
       return res.status(401).json({
         jsonrpc: "2.0",
         id: req.body?.id || null,
@@ -1497,11 +1464,10 @@ function authenticateMCP(req, res, next) {
         }
       });
     }
-    console.error("[AUTH] ✅ Valid API key provided - allowing access");
+    console.log("[AUTH] Valid API key provided");
     next();
   } else {
-    console.error("[AUTH] ❌ No authentication provided - rejecting request");
-    console.error(`[AUTH] Headers present:`, Object.keys(req.headers));
+    console.warn("[AUTH] No authentication provided - rejecting request");
     return res.status(401).json({
       jsonrpc: "2.0",
       id: req.body?.id || null,
@@ -2011,46 +1977,6 @@ app.get("/", (req, res) => {
             }
           }
         }
-      }
-    }
-  });
-});
-
-// Log request body for POST requests to root
-app.use((req, res, next) => {
-  if (req.method === 'POST' && req.path === '/') {
-    console.error(`[REQUEST BODY] POST / - Headers:`, JSON.stringify(req.headers));
-    console.error(`[REQUEST BODY] POST / - Body:`, JSON.stringify(req.body).substring(0, 1000));
-  }
-  next();
-});
-
-// Catch-all handler for unmatched routes - this will show what's not being handled
-app.use((req, res) => {
-  console.error(`[UNMATCHED ROUTE] ${req.method} ${req.path}`);
-  console.error(`[UNMATCHED ROUTE] Headers:`, JSON.stringify(req.headers));
-  if (req.body) {
-    console.error(`[UNMATCHED ROUTE] Body:`, JSON.stringify(req.body).substring(0, 500));
-  }
-
-  res.status(404).json({
-    jsonrpc: "2.0",
-    id: req.body?.id || null,
-    error: {
-      code: -32601,
-      message: `No handler found for ${req.method} ${req.path}`,
-      data: {
-        method: req.method,
-        path: req.path,
-        available_endpoints: [
-          "GET /",
-          "GET /health",
-          "POST /mcp",
-          "GET /.well-known/*",
-          "POST /oauth2/register",
-          "GET /oauth2/authorize",
-          "POST /oauth2/token"
-        ]
       }
     }
   });
