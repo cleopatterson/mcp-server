@@ -305,6 +305,22 @@ const tools = [
       },
       required: ["deal_id", "image_url"]
     }
+  },
+  {
+    name: "test_question_buttons",
+    description: "Test the QuestionButtons UI component with a sample question. Returns interactive buttons for ChatGPT to display.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        scenario: {
+          type: "string",
+          description: "Which test scenario to show",
+          enum: ["painting_type", "timing", "budget", "photos"],
+          default: "painting_type"
+        }
+      },
+      required: []
+    }
   }
 ];
 
@@ -1286,6 +1302,140 @@ async function attachImageToDeal(args) {
   }
 }
 
+// Test QuestionButtons UI Component
+async function testQuestionButtons(args) {
+  const scenario = args.scenario || 'painting_type';
+
+  const scenarios = {
+    painting_type: {
+      type: 'question_with_buttons',
+      question: 'What type of painting service do you need?',
+      description: 'Select the option that best describes your project',
+      buttons: [
+        {
+          label: 'Interior Painting',
+          value: 'I need interior painting',
+          icon: '🏠',
+          description: 'Walls, ceilings, rooms'
+        },
+        {
+          label: 'Exterior Painting',
+          value: 'I need exterior painting',
+          icon: '🏡',
+          description: 'House exterior, fences, decks'
+        },
+        {
+          label: 'Commercial',
+          value: 'I need commercial painting',
+          icon: '🏢',
+          description: 'Office, retail, or warehouse'
+        },
+        {
+          label: 'Specialty Work',
+          value: 'I need specialty painting work',
+          icon: '🎨',
+          description: 'Furniture, cabinets, murals'
+        }
+      ]
+    },
+    timing: {
+      type: 'question_with_buttons',
+      question: 'When do you need this project completed?',
+      description: 'Help us find painters with the right availability',
+      buttons: [
+        {
+          label: 'ASAP',
+          value: 'I need it done as soon as possible',
+          icon: '⚡',
+          description: 'Within 1-2 weeks'
+        },
+        {
+          label: 'Within a Month',
+          value: 'I need it done within a month',
+          icon: '📅',
+          description: 'Flexible on exact timing'
+        },
+        {
+          label: 'Just Planning',
+          value: 'I am just planning ahead',
+          icon: '🤔',
+          description: 'Getting quotes for now'
+        }
+      ]
+    },
+    budget: {
+      type: 'question_with_buttons',
+      question: 'What is your approximate budget?',
+      buttons: [
+        {
+          label: 'Under $2,000',
+          value: 'My budget is under $2,000',
+          icon: '💰'
+        },
+        {
+          label: '$2,000 - $5,000',
+          value: 'My budget is between $2,000 and $5,000',
+          icon: '💵'
+        },
+        {
+          label: '$5,000 - $10,000',
+          value: 'My budget is between $5,000 and $10,000',
+          icon: '💸'
+        },
+        {
+          label: 'Over $10,000',
+          value: 'My budget is over $10,000',
+          icon: '💎'
+        }
+      ]
+    },
+    photos: {
+      type: 'question_with_buttons',
+      question: 'Do you have photos of the area to be painted?',
+      description: 'Photos help painters give more accurate quotes',
+      buttons: [
+        {
+          label: 'Yes, upload now',
+          value: 'Yes, I want to upload photos now',
+          icon: '📸',
+          description: 'Get more accurate quotes'
+        },
+        {
+          label: 'No thanks',
+          value: 'No, I will continue without photos',
+          icon: '⏭️',
+          description: 'Continue with description only'
+        }
+      ]
+    }
+  };
+
+  const scenarioData = scenarios[scenario] || scenarios.painting_type;
+
+  // Get the server URL from environment
+  const serverUrl = process.env.REPL_SLUG
+    ? `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`
+    : 'http://localhost:3000';
+
+  // Return with ChatGPT metadata
+  const responseData = {
+    _metaai: {
+      component: 'question-buttons',
+      url: `${serverUrl}/components/question-buttons.js`
+    },
+    ...scenarioData
+  };
+
+  return {
+    content: [
+      {
+        type: "text",
+        text: JSON.stringify(responseData, null, 2)
+      }
+    ]
+  };
+}
+
 // ============================================================================
 // FastMCP Server Setup (for proper MCP protocol support)
 // ============================================================================
@@ -1325,6 +1475,8 @@ mcpServer.setRequestHandler(CallToolRequestSchema, async (request) => {
     return await analyzeImage(args || {});
   } else if (name === "attach_image_to_deal") {
     return await attachImageToDeal(args || {});
+  } else if (name === "test_question_buttons") {
+    return await testQuestionButtons(args || {});
   }
 
   throw new Error(`Unknown tool: ${name}`);
@@ -1633,6 +1785,9 @@ app.post("/mcp", authenticateMCP, async (req, res) => {
           return res.json(respond(result));
         } else if (name === "attach_image_to_deal") {
           const result = await attachImageToDeal(args || {});
+          return res.json(respond(result));
+        } else if (name === "test_question_buttons") {
+          const result = await testQuestionButtons(args || {});
           return res.json(respond(result));
         } else {
           return res.json(respond(null, {
