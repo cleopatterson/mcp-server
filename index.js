@@ -30,6 +30,9 @@ const CATEGORY_SERVICES = JSON.parse(readFileSync(categoryServicesPath, "utf-8")
 const app = express();
 app.use(cors());
 
+// Serve web components
+app.use('/components', express.static(join(__dirname, 'web/dist')));
+
 // Add request logging for debugging
 app.use((req, res, next) => {
   console.error(`[${new Date().toISOString()}] ${req.method} ${req.path}`);

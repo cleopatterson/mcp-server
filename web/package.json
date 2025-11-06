@@ -3,7 +3,9 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "build": "esbuild src/PainterCarousel.jsx --bundle --format=esm --outfile=dist/component.js --jsx=automatic --external:react --external:react-dom"
+    "build": "npm run build:carousel && npm run build:buttons",
+    "build:carousel": "esbuild src/PainterCarousel.jsx --bundle --format=esm --outfile=dist/painter-carousel.js --jsx=automatic --external:react --external:react-dom",
+    "build:buttons": "esbuild src/QuestionButtons.jsx --bundle --format=esm --outfile=dist/question-buttons.js --jsx=automatic --external:react --external:react-dom"
   },
   "dependencies": {
     "react": "^18.2.0",
