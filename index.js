@@ -30,9 +30,6 @@ const CATEGORY_SERVICES = JSON.parse(readFileSync(categoryServicesPath, "utf-8")
 const app = express();
 app.use(cors());
 
-// Serve web components
-app.use('/components', express.static(join(__dirname, 'web/dist')));
-
 // Add request logging for debugging
 app.use((req, res, next) => {
   console.error(`[${new Date().toISOString()}] ${req.method} ${req.path}`);
@@ -307,16 +304,30 @@ const tools = [
     }
   },
   {
-    name: "test_question_buttons",
-    description: "Test the QuestionButtons UI component with a sample question. Returns interactive buttons for ChatGPT to display.",
+    name: "get_pricing_reference",
+    description: "Get real-world pricing examples for painting jobs. Contains pricing data across different categories, scales, and complexities to help provide accurate estimates.",
     inputSchema: {
       type: "object",
       properties: {
-        scenario: {
+        category: {
           type: "string",
-          description: "Which test scenario to show",
-          enum: ["painting_type", "timing", "budget", "photos"],
-          default: "painting_type"
+          description: "Service category (e.g., 'painting', 'plumbing', 'electrical')",
+          default: "painting"
+        }
+      },
+      required: []
+    }
+  },
+  {
+    name: "get_site_availability_reference",
+    description: "Get guidance on collecting customer availability for site visits. Contains instructions for phone estimate vs site visit paths, and how to collect availability based on customer intent.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        category: {
+          type: "string",
+          description: "Service category (e.g., 'painting', 'plumbing', 'electrical')",
+          default: "painting"
         }
       },
       required: []
@@ -652,107 +663,22 @@ async function createJob(args) {
     };
   }
 
-  // Get server URL for component loading
-  const serverUrl = process.env.REPL_SLUG
-    ? `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`
-    : 'http://localhost:3000';
+  // Validate required fields
+  if (!args.postcode || !args.subtype) {
+    const errorData = {
+      success: false,
+      error: "Missing required fields: postcode and subtype are required"
+    };
 
-  // Interactive UI: Check what information is missing and prompt with buttons
-
-  // 1. If no subtype (service type), show service selection buttons
-  if (!args.subtype) {
-    // Return with _metaai at root level for ChatGPT
     return {
-      _metaai: {
-        component: 'question-buttons',
-        url: `${serverUrl}/components/question-buttons.js`
-      },
       content: [
         {
           type: "text",
-          text: JSON.stringify({
-            type: 'question_with_buttons',
-            question: 'What type of painting service do you need?',
-            description: 'Select the option that best describes your project',
-            buttons: [
-              {
-                label: 'Interior Painting',
-                value: 'Interior House Painting',
-                icon: '🏠',
-                description: 'Walls, ceilings, rooms'
-              },
-              {
-                label: 'Exterior Painting',
-                value: 'Exterior House Painting',
-                icon: '🏡',
-                description: 'House exterior, fences, decks'
-              },
-              {
-                label: 'Commercial',
-                value: 'Commercial Painting',
-                icon: '🏢',
-                description: 'Office, retail, or warehouse'
-              },
-              {
-                label: 'Fence Painting',
-                value: 'Fence Painting',
-                icon: '🎨',
-                description: 'Timber or metal fences'
-              }
-            ]
-          }, null, 2)
+          text: JSON.stringify(errorData, null, 2)
         }
       ]
     };
   }
-
-  // 2. If no timing, show timing buttons
-  if (!args.timing) {
-    return {
-      _metaai: {
-        component: 'question-buttons',
-        url: `${serverUrl}/components/question-buttons.js`
-      },
-      content: [
-        {
-          type: "text",
-          text: JSON.stringify({
-            type: 'question_with_buttons',
-            question: 'When do you need this project completed?',
-            description: 'Help us find painters with the right availability',
-            buttons: [
-              {
-                label: 'ASAP',
-                value: 'ASAP',
-                icon: '⚡',
-                description: 'Within 1-2 weeks'
-              },
-              {
-                label: 'Within 2 weeks',
-                value: 'Within the next 2 weeks',
-                icon: '📅',
-                description: 'Flexible on exact timing'
-              },
-              {
-                label: 'Within a month',
-                value: 'Within the next month',
-                icon: '📆',
-                description: 'Planning ahead'
-              },
-              {
-                label: 'Just researching',
-                value: 'Just researching',
-                icon: '🤔',
-                description: 'Getting quotes for now'
-              }
-            ]
-          }, null, 2)
-        }
-      ]
-    };
-  }
-
-  // Continue with actual job creation if all required fields are present...
 
   // Step 1: Get region and area from postcode
   let region = null;
@@ -1419,138 +1345,60 @@ async function attachImageToDeal(args) {
   }
 }
 
-// Test QuestionButtons UI Component
-async function testQuestionButtons(args) {
-  const scenario = args.scenario || 'painting_type';
+// Get Pricing Reference tool - returns pricing examples for a category
+async function getPricingReference(args = {}) {
+  const category = args.category || "painting";
 
-  const scenarios = {
-    painting_type: {
-      type: 'question_with_buttons',
-      question: 'What type of painting service do you need?',
-      description: 'Select the option that best describes your project',
-      buttons: [
+  try {
+    const pricingReferencePath = join(__dirname, "resources", category, "pricing_reference.txt");
+    const pricingReferenceContent = readFileSync(pricingReferencePath, "utf-8");
+
+    return {
+      content: [
         {
-          label: 'Interior Painting',
-          value: 'I need interior painting',
-          icon: '🏠',
-          description: 'Walls, ceilings, rooms'
-        },
-        {
-          label: 'Exterior Painting',
-          value: 'I need exterior painting',
-          icon: '🏡',
-          description: 'House exterior, fences, decks'
-        },
-        {
-          label: 'Commercial',
-          value: 'I need commercial painting',
-          icon: '🏢',
-          description: 'Office, retail, or warehouse'
-        },
-        {
-          label: 'Specialty Work',
-          value: 'I need specialty painting work',
-          icon: '🎨',
-          description: 'Furniture, cabinets, murals'
+          type: "text",
+          text: pricingReferenceContent
         }
       ]
-    },
-    timing: {
-      type: 'question_with_buttons',
-      question: 'When do you need this project completed?',
-      description: 'Help us find painters with the right availability',
-      buttons: [
+    };
+  } catch (err) {
+    return {
+      content: [
         {
-          label: 'ASAP',
-          value: 'I need it done as soon as possible',
-          icon: '⚡',
-          description: 'Within 1-2 weeks'
-        },
-        {
-          label: 'Within a Month',
-          value: 'I need it done within a month',
-          icon: '📅',
-          description: 'Flexible on exact timing'
-        },
-        {
-          label: 'Just Planning',
-          value: 'I am just planning ahead',
-          icon: '🤔',
-          description: 'Getting quotes for now'
+          type: "text",
+          text: `Error: Failed to load pricing reference for category '${category}' - ${err.message}\n\nMake sure resources/${category}/pricing_reference.txt exists.`
         }
       ]
-    },
-    budget: {
-      type: 'question_with_buttons',
-      question: 'What is your approximate budget?',
-      buttons: [
+    };
+  }
+}
+
+// Get Site Availability Reference tool - returns site visit availability guidance for a category
+async function getSiteAvailabilityReference(args = {}) {
+  const category = args.category || "painting";
+
+  try {
+    const siteAvailabilityPath = join(__dirname, "resources", category, "site_availability_reference.txt");
+    const siteAvailabilityContent = readFileSync(siteAvailabilityPath, "utf-8");
+
+    return {
+      content: [
         {
-          label: 'Under $2,000',
-          value: 'My budget is under $2,000',
-          icon: '💰'
-        },
-        {
-          label: '$2,000 - $5,000',
-          value: 'My budget is between $2,000 and $5,000',
-          icon: '💵'
-        },
-        {
-          label: '$5,000 - $10,000',
-          value: 'My budget is between $5,000 and $10,000',
-          icon: '💸'
-        },
-        {
-          label: 'Over $10,000',
-          value: 'My budget is over $10,000',
-          icon: '💎'
+          type: "text",
+          text: siteAvailabilityContent
         }
       ]
-    },
-    photos: {
-      type: 'question_with_buttons',
-      question: 'Do you have photos of the area to be painted?',
-      description: 'Photos help painters give more accurate quotes',
-      buttons: [
+    };
+  } catch (err) {
+    return {
+      content: [
         {
-          label: 'Yes, upload now',
-          value: 'Yes, I want to upload photos now',
-          icon: '📸',
-          description: 'Get more accurate quotes'
-        },
-        {
-          label: 'No thanks',
-          value: 'No, I will continue without photos',
-          icon: '⏭️',
-          description: 'Continue with description only'
+          type: "text",
+          text: `Error: Failed to load site availability reference for category '${category}' - ${err.message}\n\nMake sure resources/${category}/site_availability_reference.txt exists.`
         }
       ]
-    }
-  };
-
-  const scenarioData = scenarios[scenario] || scenarios.painting_type;
-
-  // Get the server URL from environment
-  const serverUrl = process.env.REPL_SLUG
-    ? `https://${process.env.REPL_SLUG}.${process.env.REPL_OWNER}.repl.co`
-    : 'http://localhost:3000';
-
-  // Return with ChatGPT metadata
-  const responseData = {
-    _metaai: {
-      component: 'question-buttons',
-      url: `${serverUrl}/components/question-buttons.js`
-    },
-    ...scenarioData
-  };
-
-  return {
-    content: [
-      {
-        type: "text",
-        text: JSON.stringify(responseData, null, 2)
-      }
-    ]
-  };
+    };
+  }
 }
 
 // ============================================================================
@@ -1587,14 +1435,16 @@ mcpServer.setRequestHandler(CallToolRequestSchema, async (request) => {
     return await getKnowledgeBase(args || {});
   } else if (name === "get_pricing_guide") {
     return await getPricingGuide(args || {});
+  } else if (name === "get_pricing_reference") {
+    return await getPricingReference(args || {});
+  } else if (name === "get_site_availability_reference") {
+    return await getSiteAvailabilityReference(args || {});
   } else if (name === "get_user") {
     return await getUser(args || {});
   } else if (name === "analyze_image") {
     return await analyzeImage(args || {});
   } else if (name === "attach_image_to_deal") {
     return await attachImageToDeal(args || {});
-  } else if (name === "test_question_buttons") {
-    return await testQuestionButtons(args || {});
   }
 
   throw new Error(`Unknown tool: ${name}`);
@@ -1662,7 +1512,7 @@ mcpServer.setRequestHandler(GetPromptRequestSchema, async (request) => {
 
   if (name === "create_painting_job") {
     return {
-      description: "Step-by-step interactive workflow for creating a painting job with button-based question UI",
+      description: "Workflow for creating a painting job in HubSpot via Voiceflow",
       messages: [
         {
           role: "user",
@@ -1675,40 +1525,32 @@ mcpServer.setRequestHandler(GetPromptRequestSchema, async (request) => {
           role: "assistant",
           content: {
             type: "text",
-            text: `I'll guide you through creating a painting job using interactive buttons!
+            text: `I'll guide you through creating a painting job in HubSpot.
 
-**Step 1: Call create_job**
-Call the \`create_job\` tool with empty arguments: \`create_job({})\`
-
-**What Happens:**
-- The tool will show INTERACTIVE BUTTONS asking "What type of painting service?"
-- User clicks a button (e.g., "Interior Painting")
-- Their choice comes back as their next message
-
-**Step 2: Capture the selection**
-When user says "Interior Painting", call \`create_job\` again with: \`create_job({subtype: "Interior House Painting"})\`
-
-**What Happens:**
-- Tool shows TIMING BUTTONS asking "When do you need it?"
-- User clicks (e.g., "ASAP")
-
-**Step 3: Continue collecting**
-After timing selection, call \`create_job({subtype: "Interior House Painting", timing: "ASAP"})\`
-
-**What Happens:**
-- Tool will ask for remaining details (no more buttons at this point)
-- Ask open questions: postcode, job description, customer details
-
-**Step 4: Final submission**
-When you have ALL required fields, call \`create_job\` with complete data to create the HubSpot deal.
+**Overview:**
+The \`create_job\` tool creates a Deal in HubSpot CRM with all the customer's painting job details.
 
 **Required Fields:**
-- subtype, timing, job_description, postcode, customer_type, customer_intent, job_size, estimate_range, preferred_contact_method
+- job_description: Detailed description of the painting work needed
+- postcode: 4-digit Australian postcode for the job location
+- subtype: Service type (must match one from VALID_SERVICES)
+- customer_type: "homeowner" or "commercial"
+- customer_intent: "Ready to hire" or "Just researching costs"
+- timing: When they need it done ("ASAP", "Within the next 2 weeks", "Within the next month", "Just researching")
+- job_size: "small", "medium", "large", or "not_applicable"
+- estimate_range: Price estimate provided, or "none provided"
+- preferred_contact_method: "Mobile phone call", "Text message", "Email", or "Any"
+- insights_or_red_flags: Additional context from the conversation
 
-**Key Points:**
-- The \`create_job\` tool controls the button UI
-- Each call returns buttons for missing info OR creates the job when complete
-- Let the tool guide the flow - just call it progressively with more data`
+**Optional Fields:**
+- budget: Customer's budget
+- customer_availability: For site visits
+
+**Workflow:**
+1. Use \`get_knowledge_base\` to understand how to qualify the job
+2. Ask questions to gather all required information
+3. Call \`create_job\` with all collected data
+4. The tool creates a HubSpot Deal and returns the deal_id`
           }
         }
       ]
@@ -1873,7 +1715,7 @@ app.post("/mcp", authenticateMCP, async (req, res) => {
         const promptName = params.name;
         if (promptName === "create_painting_job") {
           return res.json(respond({
-            description: "Step-by-step interactive workflow for creating a painting job with button-based question UI",
+            description: "Workflow for creating a painting job in HubSpot via Voiceflow",
             messages: [
               {
                 role: "user",
@@ -1886,40 +1728,32 @@ app.post("/mcp", authenticateMCP, async (req, res) => {
                 role: "assistant",
                 content: {
                   type: "text",
-                  text: `I'll guide you through creating a painting job using interactive buttons!
+                  text: `I'll guide you through creating a painting job in HubSpot.
 
-**Step 1: Call create_job**
-Call the \`create_job\` tool with empty arguments: \`create_job({})\`
-
-**What Happens:**
-- The tool will show INTERACTIVE BUTTONS asking "What type of painting service?"
-- User clicks a button (e.g., "Interior Painting")
-- Their choice comes back as their next message
-
-**Step 2: Capture the selection**
-When user says "Interior Painting", call \`create_job\` again with: \`create_job({subtype: "Interior House Painting"})\`
-
-**What Happens:**
-- Tool shows TIMING BUTTONS asking "When do you need it?"
-- User clicks (e.g., "ASAP")
-
-**Step 3: Continue collecting**
-After timing selection, call \`create_job({subtype: "Interior House Painting", timing: "ASAP"})\`
-
-**What Happens:**
-- Tool will ask for remaining details (no more buttons at this point)
-- Ask open questions: postcode, job description, customer details
-
-**Step 4: Final submission**
-When you have ALL required fields, call \`create_job\` with complete data to create the HubSpot deal.
+**Overview:**
+The \`create_job\` tool creates a Deal in HubSpot CRM with all the customer's painting job details.
 
 **Required Fields:**
-- subtype, timing, job_description, postcode, customer_type, customer_intent, job_size, estimate_range, preferred_contact_method
+- job_description: Detailed description of the painting work needed
+- postcode: 4-digit Australian postcode for the job location
+- subtype: Service type (must match one from VALID_SERVICES)
+- customer_type: "homeowner" or "commercial"
+- customer_intent: "Ready to hire" or "Just researching costs"
+- timing: When they need it done ("ASAP", "Within the next 2 weeks", "Within the next month", "Just researching")
+- job_size: "small", "medium", "large", or "not_applicable"
+- estimate_range: Price estimate provided, or "none provided"
+- preferred_contact_method: "Mobile phone call", "Text message", "Email", or "Any"
+- insights_or_red_flags: Additional context from the conversation
 
-**Key Points:**
-- The \`create_job\` tool controls the button UI
-- Each call returns buttons for missing info OR creates the job when complete
-- Let the tool guide the flow - just call it progressively with more data`
+**Optional Fields:**
+- budget: Customer's budget
+- customer_availability: For site visits
+
+**Workflow:**
+1. Use \`get_knowledge_base\` to understand how to qualify the job
+2. Ask questions to gather all required information
+3. Call \`create_job\` with all collected data
+4. The tool creates a HubSpot Deal and returns the deal_id`
                 }
               }
             ]
@@ -2025,6 +1859,12 @@ When you have ALL required fields, call \`create_job\` with complete data to cre
         } else if (name === "get_pricing_guide") {
           const result = await getPricingGuide(args || {});
           return res.json(respond(result));
+        } else if (name === "get_pricing_reference") {
+          const result = await getPricingReference(args || {});
+          return res.json(respond(result));
+        } else if (name === "get_site_availability_reference") {
+          const result = await getSiteAvailabilityReference(args || {});
+          return res.json(respond(result));
         } else if (name === "get_user") {
           const result = await getUser(args || {});
           return res.json(respond(result));
@@ -2033,9 +1873,6 @@ When you have ALL required fields, call \`create_job\` with complete data to cre
           return res.json(respond(result));
         } else if (name === "attach_image_to_deal") {
           const result = await attachImageToDeal(args || {});
-          return res.json(respond(result));
-        } else if (name === "test_question_buttons") {
-          const result = await testQuestionButtons(args || {});
           return res.json(respond(result));
         } else {
           return res.json(respond(null, {
@@ -2375,6 +2212,36 @@ app.get("/", (req, res) => {
           method: "tools/call",
           params: {
             name: "get_pricing_guide",
+            arguments: {
+              category: "painting"
+            }
+          }
+        }
+      },
+      get_pricing_reference: {
+        method: "POST",
+        url: "/mcp",
+        body: {
+          jsonrpc: "2.0",
+          id: 5,
+          method: "tools/call",
+          params: {
+            name: "get_pricing_reference",
+            arguments: {
+              category: "painting"
+            }
+          }
+        }
+      },
+      get_site_availability_reference: {
+        method: "POST",
+        url: "/mcp",
+        body: {
+          jsonrpc: "2.0",
+          id: 6,
+          method: "tools/call",
+          params: {
+            name: "get_site_availability_reference",
             arguments: {
               category: "painting"
             }
