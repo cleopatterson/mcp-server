@@ -147,6 +147,11 @@ const tools = [
           description: "When the customer needs the job completed",
           enum: ["ASAP", "Within the next 2 weeks", "Within the next month", "Just researching"]
         },
+        customer_intent: {
+          type: "string",
+          description: "Customer's readiness level - derived from how soon they need the job done",
+          enum: ["Ready to hire", "Just researching costs"]
+        },
         job_size: {
           type: "string",
           description: "Size/scope of the job",
@@ -196,6 +201,7 @@ const tools = [
         "postcode",
         "subtype",
         "timing",
+        "customer_intent",
         "job_size",
         "estimate_range",
         "preferred_contact_method",
@@ -741,6 +747,7 @@ async function createJob(args) {
     postcode: args.postcode,
     subtype: args.subtype,
     timing: args.timing,
+    customer_intent: args.customer_intent,
     job_size: args.job_size,
     estimate_range: args.estimate_range,
     preferred_contact_method: args.preferred_contact_method,
