@@ -124,13 +124,13 @@ const tools = [
   },
   {
     name: "create_job",
-    description: "Create a new painting job as a Deal in HubSpot CRM. Use the painting_knowledge_base resource to ask the right questions for job_description and job_size. Customer contact details should be associated separately.",
+    description: "Create a new painting job as a Deal in HubSpot CRM, and associate it with a customer contact (creates contact if needed). Use the painting_knowledge_base resource to ask the right questions for job_description and job_size.",
     inputSchema: {
       type: "object",
       properties: {
         job_description: {
           type: "string",
-          description: "Detailed description of the painting job - derived by asking qualifying questions from the painting_knowledge_base resource"
+          description: "Detailed description of the painting job"
         },
         postcode: {
           type: "string",
@@ -142,16 +142,6 @@ const tools = [
           description: "Service subcategory - must match one of the valid painting services",
           enum: VALID_SERVICES
         },
-        customer_type: {
-          type: "string",
-          description: "Type of customer - 'homeowner' for residential jobs, 'commercial' for business/commercial jobs",
-          enum: ["homeowner", "commercial"]
-        },
-        customer_intent: {
-          type: "string",
-          description: "Customer's readiness level - derived from how soon they need the job done",
-          enum: ["Ready to hire", "Just researching costs"]
-        },
         timing: {
           type: "string",
           description: "When the customer needs the job completed",
@@ -159,7 +149,7 @@ const tools = [
         },
         job_size: {
           type: "string",
-          description: "Size/scope of the job - determined using the painting_knowledge_base resource. Note: Some categories skip size collection (Floor Painting, Commercial, Special Tasks) - use 'not_applicable' for these",
+          description: "Size/scope of the job",
           enum: ["small", "medium", "large", "not_applicable"]
         },
         estimate_range: {
@@ -173,15 +163,28 @@ const tools = [
         },
         insights_or_red_flags: {
           type: "string",
-          description: "Additional insights from conversation including: 1) Budget vs estimate discrepancies if estimate_range was provided, 2) Context like 'preparing for sale', 3) Specific details not in job_description (room sizes, roof area, etc.)"
+          description: "Additional insights from conversation"
         },
         budget: {
           type: "string",
-          description: "Customer's budget for the job (optional but recommended)"
+          description: "Customer's budget for the job"
         },
-        customer_availability: {
+        image_urls: {
           type: "string",
-          description: "Customer's availability for site visit - required for larger jobs"
+          description: "Comma-separated list of image URLs for the job"
+        },
+        customer_email: {
+          type: "string",
+          description: "Customer's email address",
+          format: "email"
+        },
+        customer_phone: {
+          type: "string",
+          description: "Customer's mobile phone number"
+        },
+        customer_name: {
+          type: "string",
+          description: "Customer's full name"
         },
         hubspot_token: {
           type: "string",
@@ -192,13 +195,14 @@ const tools = [
         "job_description",
         "postcode",
         "subtype",
-        "customer_type",
-        "customer_intent",
         "timing",
         "job_size",
         "estimate_range",
         "preferred_contact_method",
-        "insights_or_red_flags"
+        "insights_or_red_flags",
+        "customer_email",
+        "customer_phone",
+        "customer_name"
       ]
     }
   },
@@ -643,7 +647,7 @@ async function getTopPainters(args) {
   };
 }
 
-// Create Job function - creates a Deal in HubSpot
+// Create Job function - creates a Deal in HubSpot and associates with contact
 async function createJob(args) {
   const hubspot_token = args.hubspot_token || HUBSPOT_TOKEN;
 
@@ -664,10 +668,10 @@ async function createJob(args) {
   }
 
   // Validate required fields
-  if (!args.postcode || !args.subtype) {
+  if (!args.postcode || !args.subtype || !args.customer_email || !args.customer_phone || !args.customer_name) {
     const errorData = {
       success: false,
-      error: "Missing required fields: postcode and subtype are required"
+      error: "Missing required fields: postcode, subtype, customer_email, customer_phone, and customer_name are required"
     };
 
     return {
@@ -703,8 +707,7 @@ async function createJob(args) {
             type: "text",
             text: JSON.stringify(errorData, null, 2)
           }
-        ],
-        data: errorData
+        ]
       };
     }
 
@@ -726,19 +729,10 @@ async function createJob(args) {
     };
   }
 
-  // Step 2: Calculate job_size_weight
-  const sizeWeightMap = {
-    "small": 1,
-    "medium": 2,
-    "large": 4,
-    "not_applicable": 0
-  };
-  const job_size_weight = sizeWeightMap[args.job_size] || 0;
-
-  // Step 3: Create dealname from service type
+  // Step 2: Create dealname from service type
   const dealname = `${args.subtype} - ${area}`;
 
-  // Step 4: Build HubSpot Deal properties
+  // Step 3: Build HubSpot Deal properties (simplified)
   const dealProperties = {
     dealname: dealname,
     job_description: args.job_description,
@@ -746,22 +740,16 @@ async function createJob(args) {
     area: area,
     postcode: args.postcode,
     subtype: args.subtype,
-    customer_type: args.customer_type,
-    customer_intent: args.customer_intent,
     timing: args.timing,
     job_size: args.job_size,
-    job_size_weight: String(job_size_weight),
     estimate_range: args.estimate_range,
     preferred_contact_method: args.preferred_contact_method,
     insights_or_red_flags: args.insights_or_red_flags,
-    // Default values
     industry: "painter",
     pipeline: "38341498",
     dealstage: "81813617",
     confirmed_company_count: "0",
-    rejected_count: "0",
-    undelivered_count: "0",
-    preferred_number_of_quotes: "5",
+    preferred_number_of_quotes: "3",
     state: "NSW"
   };
 
@@ -769,11 +757,13 @@ async function createJob(args) {
   if (args.budget) {
     dealProperties.budget = args.budget;
   }
-  if (args.customer_availability) {
-    dealProperties.customer_availability = args.customer_availability;
+  if (args.image_urls) {
+    dealProperties.image_urls = args.image_urls;
   }
 
-  // Step 5: Create Deal in HubSpot
+  let deal_id;
+
+  // Step 4: Create Deal in HubSpot
   try {
     const response = await fetch("https://api.hubapi.com/crm/v3/objects/deals", {
       method: "POST",
@@ -792,16 +782,136 @@ async function createJob(args) {
     }
 
     const dealData = await response.json();
+    deal_id = dealData.id;
+  } catch (err) {
+    const errorData = {
+      success: false,
+      error: `Failed to create deal: ${err.message}`
+    };
 
+    return {
+      content: [
+        {
+          type: "text",
+          text: JSON.stringify(errorData, null, 2)
+        }
+      ]
+    };
+  }
+
+  // Step 5: Find or create contact and associate with deal
+  let contactId;
+  let contactStatus = "unknown";
+
+  try {
+    const headers = {
+      Authorization: `Bearer ${hubspot_token}`,
+      "Content-Type": "application/json"
+    };
+
+    // Try searching by email first
+    const emailSearchBody = {
+      filterGroups: [{
+        filters: [{ propertyName: "email", operator: "EQ", value: args.customer_email }]
+      }],
+      properties: ["email"],
+      limit: 1
+    };
+
+    const emailSearchRes = await fetch("https://api.hubapi.com/crm/v3/objects/contacts/search", {
+      method: "POST",
+      headers,
+      body: JSON.stringify(emailSearchBody)
+    });
+
+    const emailSearchData = await emailSearchRes.json();
+
+    if (emailSearchData.results && emailSearchData.results.length > 0) {
+      contactId = emailSearchData.results[0].id;
+      contactStatus = "found_by_email";
+    } else {
+      // Try searching by phone
+      const phoneSearchBody = {
+        filterGroups: [{
+          filters: [{ propertyName: "mobilephone", operator: "EQ", value: args.customer_phone }]
+        }],
+        properties: ["mobilephone"],
+        limit: 1
+      };
+
+      const phoneSearchRes = await fetch("https://api.hubapi.com/crm/v3/objects/contacts/search", {
+        method: "POST",
+        headers,
+        body: JSON.stringify(phoneSearchBody)
+      });
+
+      const phoneSearchData = await phoneSearchRes.json();
+
+      if (phoneSearchData.results && phoneSearchData.results.length > 0) {
+        contactId = phoneSearchData.results[0].id;
+        contactStatus = "found_by_phone";
+      } else {
+        // Create new contact
+        let firstname = args.customer_name?.trim() || "";
+        let lastname = "";
+
+        if (firstname.includes(" ")) {
+          const parts = firstname.split(" ");
+          firstname = parts[0];
+          lastname = parts.slice(1).join(" ");
+        }
+
+        const createRes = await fetch("https://api.hubapi.com/crm/v3/objects/contacts", {
+          method: "POST",
+          headers,
+          body: JSON.stringify({
+            properties: {
+              email: args.customer_email,
+              mobilephone: args.customer_phone,
+              firstname,
+              lastname
+            }
+          })
+        });
+
+        if (!createRes.ok) {
+          const errorText = await createRes.text();
+          throw new Error(`Failed to create contact: ${errorText}`);
+        }
+
+        const createData = await createRes.json();
+        contactId = createData.id;
+        contactStatus = "created";
+      }
+    }
+
+    // Step 6: Associate contact with deal
+    const assocRes = await fetch(
+      `https://api.hubapi.com/crm/v4/objects/contacts/${contactId}/associations/default/deals/${deal_id}`,
+      {
+        method: "PUT",
+        headers,
+        body: JSON.stringify({
+          associationCategory: "USER_DEFINED",
+          associationTypeId: 36
+        })
+      }
+    );
+
+    if (!assocRes.ok) {
+      throw new Error(`Failed to associate contact with deal: ${assocRes.status}`);
+    }
+
+    // Success response
     const responseData = {
       success: true,
-      deal_id: dealData.id,
+      deal_id: deal_id,
+      contact_id: contactId,
+      contact_status: contactStatus,
       dealname: dealname,
       region: region,
       area: area,
-      job_size: args.job_size,
-      job_size_weight: job_size_weight,
-      message: "Job created successfully in HubSpot"
+      message: "Job created successfully and associated with contact"
     };
 
     return {
@@ -812,10 +922,12 @@ async function createJob(args) {
         }
       ]
     };
+
   } catch (err) {
     const errorData = {
       success: false,
-      error: `Failed to create deal: ${err.message}`
+      deal_id: deal_id,
+      error: `Failed to find/create/associate contact: ${err.message}`
     };
 
     return {
@@ -2176,14 +2288,15 @@ app.get("/", (req, res) => {
               job_description: "Full interior repaint of 3-bedroom apartment including walls, ceilings, and trims",
               postcode: "2093",
               subtype: "Interior House Painting",
-              customer_type: "homeowner",
-              customer_intent: "Ready to hire",
               timing: "Within the next 2 weeks",
               job_size: "medium",
               estimate_range: "$3000-$5000",
               preferred_contact_method: "Mobile phone call",
               insights_or_red_flags: "Customer preparing property for sale - timeline is important",
-              budget: "$4500"
+              budget: "$4500",
+              customer_email: "john.doe@example.com",
+              customer_phone: "0412345678",
+              customer_name: "John Doe"
             }
           }
         }
